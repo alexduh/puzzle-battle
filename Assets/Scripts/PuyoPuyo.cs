@@ -18,6 +18,8 @@ public class PuyoPuyo : GridManager
     private AudioSource[] sounds;
     private AudioSource connect, move, rotate;
 
+    public Queue<int> next = new Queue<int>();
+
     public GameOver go;
     private float started, update, cleared, primaryBlink;
 
@@ -52,7 +54,12 @@ public class PuyoPuyo : GridManager
     // Create a Puyo Block, with each side a random color
     void CreatePuyoBlock()
     {
-        int random = (int)Mathf.Round(Random.Range(0, 15));
+        if (next.Count <= 0)
+        {
+            //getPuyo();
+        }
+        
+        int random = Random.Range(0, 16);
         int quotient = random / 4;
         int remainder = random % 4;
 
@@ -397,6 +404,8 @@ public class PuyoPuyo : GridManager
     // Start is called before the first frame update
     void Start()
     {
+        SetWidth(6);
+        SetHeight(12);
         base.Start();
         sounds = GetComponents<AudioSource>();
         connect = sounds[1];

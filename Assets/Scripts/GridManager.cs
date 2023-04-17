@@ -6,7 +6,6 @@ public class GridManager : MonoBehaviour
 {
     [SerializeField] protected int _width, _height;
     [SerializeField] private Tile _tilePrefab;
-    [SerializeField] private Transform _cam;
 
     public void SetWidth(int w)
     {
@@ -28,9 +27,6 @@ public class GridManager : MonoBehaviour
                 spawnedTile.name = $"Tile {x} {y}";
             }
         }
-        
-        _cam.GetComponent<Camera>().orthographicSize = (float)_height * 0.625f;
-        _cam.transform.position = new Vector3((float)_width/2 - 0.5f, (float)_height/2 - 0.5f, -10);
 
     }
 
