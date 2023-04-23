@@ -1,10 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UI;
-using TMPro;
 
-public class PuyoPuyo : GridManager
+public class PuyoPuyo : Player
 {
     [SerializeField] private Block _blockPrefab;
     [SerializeField] private Block _redPuyo;
@@ -12,44 +10,15 @@ public class PuyoPuyo : GridManager
     [SerializeField] private Block _greenPuyo;
     [SerializeField] private Block _bluePuyo;
 
-    [SerializeField] private GameObject gameOverText;
-    [SerializeField] private TMP_Text startCountdown;
-
     private AudioSource[] sounds;
     private AudioSource connect, move, rotate;
 
     public Queue<int> next = new Queue<int>();
 
-    public GameOver go;
-    private float started, update, cleared, primaryBlink;
+    private float update, clearedTime, primaryBlink;
 
-    Block[,] grid;
     Block[] falling = new Block[2];
     int x1, y1, x2, y2;
-
-    void deleteGrid()
-    {
-        for (int i = 0; i < _width; i++)
-        {
-            for (int j = 0; j < (_height + 2); j++)
-            {
-                if (grid[i, j])
-                {
-                    Destroy(grid[i, j].gameObject);
-                }
-            }
-        }
-    }
-
-    // Show "GAME OVER!" message for 5 seconds, then hide message and return to Main Menu
-    void GameOver()
-    {
-        gameOverText.SetActive(true);
-        go.update = 5.0f;
-        deleteGrid();
-        this.GetComponent<AudioSource>().enabled = false;
-        this.enabled = false;
-    }
 
     // Create a Puyo Block, with each side a random color
     void CreatePuyoBlock()
@@ -384,67 +353,53 @@ public class PuyoPuyo : GridManager
             if (list.Count >= 4)
             {
                 connect.Play();
-                cleared = 1.0f;
+                clearedTime = 1.0f;
                 foreach (Block block in list)
                 {
                     grid[(int)block.transform.position.x, (int)block.transform.position.y] = null;
 
                     block.destroy = true;
+                    cleared++;
+                    if (cleared >= 20)
+                    {
+                        level++;
+                        dropTime *= .9f; // decrease dropTime by 10%
+                        cleared -= 20;
+                    }
                 }
             }
                     
         }
     }
 
-    void OnEnable()
-    {
-        started = 3.0f;
-    }
-
     // Start is called before the first frame update
-    void Start()
+    new void Start()
     {
         SetWidth(6);
         SetHeight(12);
         base.Start();
         sounds = GetComponents<AudioSource>();
-        connect = sounds[1];
-        move = sounds[2];
-        rotate = sounds[3];
+        connect = sounds[0];
+        move = sounds[1];
+        rotate = sounds[2];
         grid = new Block[_width, _height+2];
     }
 
     // Update is called once per frame
     void Update()
     {
-        if (started > 0)
+        if (GameScreen.started > 0)
         {
-            startCountdown.gameObject.SetActive(true);
-            startCountdown.text = Mathf.Round(started).ToString();
-            started -= Time.deltaTime;
-
-            if (started <= 1)
-            {
-                startCountdown.text = "GO!";
-            }
-            if (started <= 0)
-            {
-                startCountdown.gameObject.SetActive(false);
-                this.GetComponent<AudioSource>().enabled = true;
-            }
-            else
-            {
-                return;
-            }
+            return;
         }
 
         List<Block> moved = new List<Block>();
 
-        if (cleared > 0)
+        if (clearedTime > 0)
         {
-            cleared -= Time.deltaTime;
+            clearedTime -= Time.deltaTime;
 
-            if (cleared <= 0)
+            if (clearedTime <= 0)
             {
                 moved = dropAll();
                 checkConnect(moved);
@@ -497,11 +452,11 @@ public class PuyoPuyo : GridManager
                 primaryBlink = 0;
             }
 
-            if (update > 1.0f)
+            if (update > dropTime)
             {
                 falling[0].GetComponent<Renderer>().enabled = true;
 
-                update -= 1.0f;
+                update -= dropTime;
                 if (y1 == 0 || y2 == 0 || grid[x1, y1 - 1] || grid[x2, y2 - 1])
                 {
                     grid[x1, y1] = falling[0];
@@ -512,14 +467,14 @@ public class PuyoPuyo : GridManager
                     moved.Add(falling[1]);
 
                     checkConnect(moved);
-                    if (cleared > 0)
+                    if (clearedTime > 0)
                     {
                         return;
                     }
 
                     if (grid[2, 11])
                     {
-                        GameOver();
+                        Eliminated();
                         return;
                     }
 

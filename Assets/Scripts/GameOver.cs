@@ -8,6 +8,11 @@ public class GameOver : MonoBehaviour
 
     public float update;
 
+    private void OnEnable()
+    {
+        update = 5.0f;
+    }
+
     // Start is called before the first frame update
     void Start()
     {
@@ -23,5 +28,6 @@ public class GameOver : MonoBehaviour
             this.gameObject.SetActive(false);
             mainMenu.SetActive(true);
         }
+
     }
 }

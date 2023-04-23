@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Tetris : GridManager
+public class Tetris : Player
 {
     Block[,] grid;
     private float update, started;
