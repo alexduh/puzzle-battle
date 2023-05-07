@@ -38,9 +38,19 @@ public class PieceGenerator : MonoBehaviour
 
     // TODO: called when any Puyo player's Queue is too small (< 3). Generate an int representing a new Puyo Piece and
     // pushes it out to all Puyo players' Queues
-    public void getPuyo()
+    public static void getPuyo(GameObject players)
     {
         int selected = Random.Range(0, 16);
+        // place the piece into each puyo player's queue!
+        foreach (Transform child in players.transform)
+        {
+            PuyoPuyo puyoPlayer = child.GetComponent<PuyoPuyo>();
+            if (puyoPlayer)
+            {
+                puyoPlayer.AddToQueue(selected);
+            }
+            
+        }
         return;
     }
 

@@ -16,6 +16,10 @@ public class GameScreen : NetworkBehaviour
     [SerializeField] private GameObject playerList;
     [SerializeField] private GameObject go;
 
+    [SerializeField] private TMP_Text numPlayers;
+    [SerializeField] private TMP_Text gameMode;
+
+    //private NetworkVariable<ulong> playerID;
     private bool multiplayer;
 
     private readonly Dictionary<ulong, bool> players = new();
@@ -31,23 +35,7 @@ public class GameScreen : NetworkBehaviour
     public void SetMultiPlayer()
     {
         multiplayer = true;
-    }
-
-    /*    private void OnClientConnectedCallback(ulong playerId)
-        {
-            if (!IsServer) return;
-
-            // Add locally
-            if (!players.ContainsKey(playerId))
-            {
-                players.Add(playerId, false);
-            }
-
-            PropagateToClients();
-
-            UpdateInterface();
-        }
-    */
+    }    
 
     private void StartGame()
     {
@@ -61,14 +49,11 @@ public class GameScreen : NetworkBehaviour
             playerList.transform.GetChild(i).gameObject.GetComponent<PuyoPuyo>().enabled = true;
         }
 
+        SetReadyServerRpc(NetworkManager.Singleton.LocalClientId);
+
         mainMenu.gameObject.SetActive(false);
         readyButton.gameObject.SetActive(false);
         startCountdown.gameObject.SetActive(true);
-
-        /*foreach(var script in scripts)
-        {
-            
-        }*/
 
         _cam.GetComponent<Camera>().orthographicSize = 7.5f;
         _cam.transform.position = new Vector3(2.5f, 5.5f, -10);
@@ -94,41 +79,44 @@ public class GameScreen : NetworkBehaviour
         }
     }
 
+    public override void OnNetworkSpawn()
+    {
+        //playerID = new NetworkVariable<ulong>(OwnerClientId);
+        if (IsServer)
+        {
+            NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnectedCallback;
+            players.Add(NetworkManager.Singleton.LocalClientId, false);
+            Debug.Log($"My ID is: {NetworkManager.Singleton.LocalClientId}");
+            UpdateInterface(players);
+        }
+
+        // Client uses this in case host destroys the lobby
+        //NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnectCallback;
+
+    }
+
+    private void OnClientConnectedCallback(ulong playerID)
+    {
+        if (!IsServer) 
+            return;
+
+        // Add locally
+        if (!players.ContainsKey(playerID))
+        {
+            players.Add(playerID, false);
+        }
+
+        PropagateToClients();
+
+        UpdateInterface(players);
+    }
+
     [ServerRpc(RequireOwnership = false)]
     private void SetReadyServerRpc(ulong playerID)
     {
         players[playerID] = !players[playerID];
         PropagateToClients();
         UpdateInterface(players);
-    }
-
-    [ClientRpc]
-    private void UpdatePlayerClientRpc(ulong clientId, bool isReady)
-    {
-        if (IsServer) return;
-
-        if (!players.ContainsKey(clientId)) players.Add(clientId, isReady);
-        else players[clientId] = isReady;
-        UpdateInterface(players);
-    }
-    private void UpdateInterface(Dictionary<ulong, bool> players)
-    {
-        var allActivePlayerIds = players.Keys;
-
-        foreach (var player in players)
-        {
-            //var currentPanel = _playerPanels.FirstOrDefault(p => p.PlayerId == player.Key);
-            if (player.Value)
-            {
-                GetComponent<Image>().color = Color.green;
-            }
-            else
-            {
-                GetComponent<Image>().color = Color.gray;
-            }
-        }
-        
-        //_readyButton.SetActive(!_ready);
     }
 
     private void PropagateToClients()
@@ -139,15 +127,46 @@ public class GameScreen : NetworkBehaviour
         }
     }
 
+    [ClientRpc]
+    private void UpdatePlayerClientRpc(ulong clientId, bool isReady)
+    {
+        if (IsServer) 
+            return;
+
+        if (!players.ContainsKey(clientId)) 
+            players.Add(clientId, isReady);
+        else 
+            players[clientId] = isReady;
+
+        UpdateInterface(players);
+    }
+    private void UpdateInterface(Dictionary<ulong, bool> players)
+    {
+        Player[] playerList = Object.FindObjectsOfType<Player>();
+        
+        foreach (Player player in playerList)
+        {
+            player.transform.GetChild(1).gameObject.SetActive(players[player.OwnerClientId]);
+        }
+
+    }
+
     // This function is only used for Single Player mode
     public void CreatePlayer()
     {
-        Player p = Instantiate(playerPrefab, playerLayout);
+        Instantiate(playerPrefab, playerLayout);
         players.Add(NetworkManager.Singleton.LocalClientId, false);
     }
 
     bool allReady()
     {
+        if (players.Count == 0 || (multiplayer && players.Count <= 1))
+        {
+            // can't start game unless at least one player is ready
+            // can't start multiplayer game unless at least 2 players ready
+            return false; 
+        }
+
         foreach (var player in players)
         {
             if (!player.Value)
@@ -157,6 +176,14 @@ public class GameScreen : NetworkBehaviour
         }
 
         return true;
+    }
+
+    private void OnEnable()
+    {
+        // disable # Players text, enable Select Game Mode text
+        // TODO: update GameScreen based on server
+        numPlayers.gameObject.SetActive(false);
+        gameMode.gameObject.SetActive(true);
     }
 
     // Start is called before the first frame update
@@ -188,7 +215,6 @@ public class GameScreen : NetworkBehaviour
 
         if (allReady())
         {
-            Debug.Log("All players are ready!");
             readyTime += Time.deltaTime;
             if (readyTime >= 1.0f)
             {

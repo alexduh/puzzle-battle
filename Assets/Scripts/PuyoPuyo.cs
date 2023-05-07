@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -13,57 +14,68 @@ public class PuyoPuyo : Player
     private AudioSource[] sounds;
     private AudioSource connect, move, rotate;
 
-    public Queue<int> next = new Queue<int>();
-
     private float update, clearedTime, primaryBlink;
+    private float keyPressed;
 
     Block[] falling = new Block[2];
     int x1, y1, x2, y2;
 
-    // Create a Puyo Block, with each side a random color
-    void CreatePuyoBlock()
+    public void AddToQueue(int selected)
     {
-        if (next.Count <= 0)
+        for (int x = 0; x < immediateNext.GetLength(0); x++)
         {
-            //getPuyo();
-        }
-        
-        int random = Random.Range(0, 16);
-        int quotient = random / 4;
-        int remainder = random % 4;
-
-        switch(quotient)
-        {
-            case 0:
-                falling[0] = Instantiate(_redPuyo, new Vector3(2, 12), Quaternion.identity);
-                break;
-            case 1:
-                falling[0] = Instantiate(_yellowPuyo, new Vector3(2, 12), Quaternion.identity);
-                break;
-            case 2:
-                falling[0] = Instantiate(_greenPuyo, new Vector3(2, 12), Quaternion.identity);
-                break;
-            case 3:
-                falling[0] = Instantiate(_bluePuyo, new Vector3(2, 12), Quaternion.identity);
-                break;
+            if (immediateNext[x, 0] == null)
+            {
+                immediateNext[x, 0] = CreatePuyoSegment(selected / 4, new Vector3(6, 11 - 2 * x));
+                immediateNext[x, 1] = CreatePuyoSegment(selected % 4, new Vector3(6, 12 - 2 * x));
+                return;
+            }
         }
 
-        switch (remainder)
+        next.Enqueue(selected);
+    }
+    
+    Block CreatePuyoSegment(int color, Vector3 location)
+    {
+        Block ret = null;
+        switch (color)
         {
             case 0:
-                falling[1] = Instantiate(_redPuyo, new Vector3(2, 13), Quaternion.identity);
+                ret = Instantiate(_redPuyo, location, Quaternion.identity);
                 break;
             case 1:
-                falling[1] = Instantiate(_yellowPuyo, new Vector3(2, 13), Quaternion.identity);
+                ret = Instantiate(_yellowPuyo, location, Quaternion.identity);
                 break;
             case 2:
-                falling[1] = Instantiate(_greenPuyo, new Vector3(2, 13), Quaternion.identity);
+                ret = Instantiate(_greenPuyo, location, Quaternion.identity);
                 break;
             case 3:
-                falling[1] = Instantiate(_bluePuyo, new Vector3(2, 13), Quaternion.identity);
+                ret = Instantiate(_bluePuyo, location, Quaternion.identity);
                 break;
         }
 
+        return ret;
+    }
+
+    // Create a Puyo Block, with each side a random color
+    void CreateFallingPuyoBlock()
+    {
+        falling[0] = immediateNext[0, 0];
+        falling[1] = immediateNext[0, 1];
+        falling[0].transform.position = new Vector3(2, 12);
+        falling[1].transform.position = new Vector3(2, 13);
+    }
+
+    void UpdateNext()
+    {
+        immediateNext[0, 0] = immediateNext[1, 0];
+        immediateNext[0, 1] = immediateNext[1, 1];
+        immediateNext[0, 0].transform.position = new Vector3(6, 11);
+        immediateNext[0, 1].transform.position = new Vector3(6, 12);
+
+        int selected = next.Dequeue();
+        immediateNext[1, 0] = CreatePuyoSegment(selected/4, new Vector3(6, 9));
+        immediateNext[1, 1] = CreatePuyoSegment(selected%4, new Vector3(6, 10));
     }
 
     bool leftOpen(Block b)
@@ -377,6 +389,7 @@ public class PuyoPuyo : Player
     {
         SetWidth(6);
         SetHeight(12);
+        immediateNext = new Block[2, 2];
         base.Start();
         sounds = GetComponents<AudioSource>();
         connect = sounds[0];
@@ -410,7 +423,13 @@ public class PuyoPuyo : Player
         {
             if (!falling[0] || !falling[1])
             {
-                CreatePuyoBlock();
+                while (next.Count < 1)
+                {
+                    PieceGenerator.getPuyo(transform.parent.gameObject);
+                }
+
+                CreateFallingPuyoBlock();
+                UpdateNext();
             }
 
             x1 = (int)falling[0].transform.position.x;
@@ -418,13 +437,23 @@ public class PuyoPuyo : Player
             x2 = (int)falling[1].transform.position.x;
             y2 = (int)falling[1].transform.position.y;
 
-            if (Input.GetKeyDown(KeyCode.LeftArrow))
+            if (Input.GetKey(KeyCode.LeftArrow))
             {
-                moveLeft();
+                if (keyPressed == 0 || keyPressed > .5f) // move immediately on first press, then zoom after 0.5s
+                {
+                    moveLeft();
+                }
+
+                keyPressed += Time.deltaTime;
             }
-            else if (Input.GetKeyDown(KeyCode.RightArrow))
+            else if (Input.GetKey(KeyCode.RightArrow))
             {
-                moveRight();
+                if (keyPressed == 0 || keyPressed > .5f) // move immediately on first press, then zoom after 0.5s
+                {
+                    moveRight();
+                }
+
+                keyPressed += Time.deltaTime;
             }
             else if (Input.GetKeyDown(KeyCode.Z))
             {
@@ -433,6 +462,11 @@ public class PuyoPuyo : Player
             else if (Input.GetKeyDown(KeyCode.X))
             {
                 rotateCW();
+            }
+
+            if (Input.GetKeyUp(KeyCode.LeftArrow) || Input.GetKeyUp(KeyCode.RightArrow))
+            {
+                keyPressed = 0;
             }
 
             if (Input.GetKey(KeyCode.DownArrow))
@@ -478,7 +512,7 @@ public class PuyoPuyo : Player
                         return;
                     }
 
-                    CreatePuyoBlock();
+                    falling[0] = falling[1] = null;
                 }
                 else
                 {

@@ -10,6 +10,8 @@ public class Player : NetworkBehaviour
     [SerializeField] private GameScreen gs;
 
     protected Block[,] grid;
+    protected Block[,] immediateNext;
+    protected Queue<int> next = new Queue<int>();
 
     protected int cleared; // Blocks destroyed
     protected int level; // increase based on Blocks destroyed
@@ -66,6 +68,19 @@ public class Player : NetworkBehaviour
         cleared = 0;
         level = 1;
         dropTime = 1.0f;
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        GameObject playerTemp = GameObject.Find("Canvas/GameScreen/Players");
+        transform.SetParent(playerTemp.transform);
+        base.OnNetworkSpawn();
+
+        if (!IsOwner)
+        {
+            this.enabled = false;
+        }
+
     }
 
     // Start is called before the first frame update
