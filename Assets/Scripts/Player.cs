@@ -16,6 +16,8 @@ public class Player : NetworkBehaviour
     protected int cleared; // Blocks destroyed
     protected int level; // increase based on Blocks destroyed
     protected float dropTime; // decrease based on level
+    protected Vector3 playerPos = Vector3.zero;
+    protected Vector3 cornerPos = Vector3.zero;
 
     public void SetWidth(int w)
     {
@@ -51,11 +53,14 @@ public class Player : NetworkBehaviour
 
     void GenerateGrid()
     {
+        playerPos = Camera.main.ScreenToWorldPoint(transform.position);
+        cornerPos = new Vector3(Mathf.Round(playerPos.x - 2.5f), 6f);
+
         for (int x = 0; x < _width; x++)
         {
             for (int y = 0; y < _height; y++)
             {
-                var spawnedTile = Instantiate(_tilePrefab, new Vector3(x, y), Quaternion.identity);
+                var spawnedTile = Instantiate(_tilePrefab, cornerPos + new Vector3(x, y - _height), Quaternion.identity);
                 spawnedTile.name = $"Tile {x} {y}";
             }
         }
@@ -75,28 +80,23 @@ public class Player : NetworkBehaviour
         GameObject playerTemp = GameObject.Find("Canvas/GameScreen/Players");
         transform.SetParent(playerTemp.transform);
         base.OnNetworkSpawn();
-
-        if (!IsOwner)
-        {
-            this.enabled = false;
-        }
-
     }
 
     // Start is called before the first frame update
     protected virtual void Start()
     {
         GenerateGrid();
+        if (GameScreen.multiplayer && !IsOwner)
+        {
+            this.enabled = false;
+        }
+
         gs = Object.FindObjectOfType<GameScreen>();
     }
 
     // Update is called once per frame
-    void Update()
+    protected void Update()
     {
-        if (!IsOwner)
-        {
-            return;
-        }
 
     }
 }

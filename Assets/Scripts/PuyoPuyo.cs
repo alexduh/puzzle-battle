@@ -16,9 +16,13 @@ public class PuyoPuyo : Player
 
     private float update, clearedTime, primaryBlink;
     private float keyPressed;
+    private PieceGenerator generator;
+    private int touchLimit = 8;
+    private int touchCount;
 
+    List<Block> moved;
     Block[] falling = new Block[2];
-    int x1, y1, x2, y2;
+    int x1, y1, x2, y2, gx1, gx2, gy1, gy2;
 
     public void AddToQueue(int selected)
     {
@@ -26,8 +30,8 @@ public class PuyoPuyo : Player
         {
             if (immediateNext[x, 0] == null)
             {
-                immediateNext[x, 0] = CreatePuyoSegment(selected / 4, new Vector3(6, 11 - 2 * x));
-                immediateNext[x, 1] = CreatePuyoSegment(selected % 4, new Vector3(6, 12 - 2 * x));
+                immediateNext[x, 0] = CreatePuyoSegment(selected / 4, cornerPos + new Vector3(_width, -2 * x - 2));
+                immediateNext[x, 1] = CreatePuyoSegment(selected % 4, cornerPos + new Vector3(_width, -2 * x - 1));
                 return;
             }
         }
@@ -62,46 +66,47 @@ public class PuyoPuyo : Player
     {
         falling[0] = immediateNext[0, 0];
         falling[1] = immediateNext[0, 1];
-        falling[0].transform.position = new Vector3(2, 12);
-        falling[1].transform.position = new Vector3(2, 13);
+        falling[0].transform.position = cornerPos + new Vector3(2, 0);
+        falling[1].transform.position = cornerPos + new Vector3(2, 1);
+        touchCount = 0;
     }
 
     void UpdateNext()
     {
         immediateNext[0, 0] = immediateNext[1, 0];
         immediateNext[0, 1] = immediateNext[1, 1];
-        immediateNext[0, 0].transform.position = new Vector3(6, 11);
-        immediateNext[0, 1].transform.position = new Vector3(6, 12);
+        immediateNext[0, 0].transform.position = cornerPos + new Vector3(_width, -2);
+        immediateNext[0, 1].transform.position = cornerPos + new Vector3(_width, -1);
 
         int selected = next.Dequeue();
-        immediateNext[1, 0] = CreatePuyoSegment(selected/4, new Vector3(6, 9));
-        immediateNext[1, 1] = CreatePuyoSegment(selected%4, new Vector3(6, 10));
+        immediateNext[1, 0] = CreatePuyoSegment(selected/4, cornerPos + new Vector3(_width, -4));
+        immediateNext[1, 1] = CreatePuyoSegment(selected%4, cornerPos + new Vector3(_width, -3));
     }
 
-    bool leftOpen(Block b)
+    bool LeftOpen(Block b)
     {
-        int x = (int)b.transform.position.x;
-        int y = (int)b.transform.position.y;
+        int x = (int)(b.transform.position.x - cornerPos.x);
+        int y = (int)(b.transform.position.y - cornerPos.y + _height);
         return (x > 0 && !grid[x - 1, y]);
     }
 
-    bool rightOpen(Block b)
+    bool RightOpen(Block b)
     {
-        int x = (int)b.transform.position.x;
-        int y = (int)b.transform.position.y;
+        int x = (int)(b.transform.position.x - cornerPos.x);
+        int y = (int)(b.transform.position.y - cornerPos.y + _height);
         return (x < 5 && !grid[x + 1, y]);
     }
 
-    bool bottomOpen(Block b)
+    bool BottomOpen(Block b)
     {
-        int x = (int)b.transform.position.x;
-        int y = (int)b.transform.position.y;
+        int x = (int)(b.transform.position.x - cornerPos.x);
+        int y = (int)(b.transform.position.y - cornerPos.y + _height);
         return (y > 0 && !grid[x, y - 1]);
     }
 
-    void moveLeft()
+    void MoveLeft()
     {
-        if (leftOpen(falling[0]) && leftOpen(falling[1]))
+        if (LeftOpen(falling[0]) && LeftOpen(falling[1]))
         {
             falling[0].transform.position = new Vector3(x1 - 1, y1);
             falling[1].transform.position = new Vector3(x2 - 1, y2);
@@ -109,9 +114,9 @@ public class PuyoPuyo : Player
         }
     }
 
-    void moveRight()
+    void MoveRight()
     {
-        if (rightOpen(falling[0]) && rightOpen(falling[1]))
+        if (RightOpen(falling[0]) && RightOpen(falling[1]))
         {
             falling[0].transform.position = new Vector3(x1 + 1, y1);
             falling[1].transform.position = new Vector3(x2 + 1, y2);
@@ -119,7 +124,7 @@ public class PuyoPuyo : Player
         }
     }
 
-    void moveDown()
+    void MoveDown()
     {
         falling[0].transform.position = new Vector3(x1, y1 - 1);
         falling[1].transform.position = new Vector3(x2, y2 - 1);
@@ -127,15 +132,15 @@ public class PuyoPuyo : Player
 
     int bufferedRotate = 0;
 
-    void rotateCCW()
+    void RotateCCW()
     {
         if (y2 > y1)
         {
-            if (leftOpen(falling[0]))
+            if (LeftOpen(falling[0]))
             {
                 falling[1].transform.position = new Vector3(x1 - 1, y1);
             }
-            else if (rightOpen(falling[0]))
+            else if (RightOpen(falling[0]))
             {
                 falling[1].transform.position = new Vector3(x1, y1);
                 falling[0].transform.position = new Vector3(x1 + 1, y1);
@@ -156,11 +161,11 @@ public class PuyoPuyo : Player
         }
         else if (y1 > y2)
         {
-            if (rightOpen(falling[0]))
+            if (RightOpen(falling[0]))
             {
                 falling[1].transform.position = new Vector3(x1 + 1, y1);
             }
-            else if (leftOpen(falling[0]))
+            else if (LeftOpen(falling[0]))
             {
                 falling[1].transform.position = new Vector3(x1, y1);
                 falling[0].transform.position = new Vector3(x1 - 1, y1);
@@ -184,7 +189,7 @@ public class PuyoPuyo : Player
         }
         else
         {
-            if (bottomOpen(falling[0]))
+            if (BottomOpen(falling[0]))
             {
                 falling[1].transform.position = new Vector3(x1, y1 - 1);
             }
@@ -192,21 +197,22 @@ public class PuyoPuyo : Player
             {
                 falling[1].transform.position = new Vector3(x1, y1);
                 falling[0].transform.position = new Vector3(x1, y1 + 1);
+                touchCount++;
             }
         }
 
         rotate.Play();
     }
 
-    void rotateCW()
+    void RotateCW()
     {
         if (y2 > y1)
         {
-            if (rightOpen(falling[0]))
+            if (RightOpen(falling[0]))
             {
                 falling[1].transform.position = new Vector3(x1 + 1, y1);
             }
-            else if (leftOpen(falling[0]))
+            else if (LeftOpen(falling[0]))
             {
                 falling[1].transform.position = new Vector3(x1, y1);
                 falling[0].transform.position = new Vector3(x1 - 1, y1);
@@ -226,11 +232,11 @@ public class PuyoPuyo : Player
         }
         else if (y1 > y2)
         {
-            if (leftOpen(falling[0]))
+            if (LeftOpen(falling[0]))
             {
                 falling[1].transform.position = new Vector3(x1 - 1, y1);
             }
-            else if (rightOpen(falling[0]))
+            else if (RightOpen(falling[0]))
             {
                 falling[1].transform.position = new Vector3(x1, y1);
                 falling[0].transform.position = new Vector3(x1 + 1, y1);
@@ -250,7 +256,7 @@ public class PuyoPuyo : Player
         }
         else if (x2 > x1)
         {
-            if (bottomOpen(falling[0]))
+            if (BottomOpen(falling[0]))
             {
                 falling[1].transform.position = new Vector3(x1, y1 - 1);
             }
@@ -258,6 +264,7 @@ public class PuyoPuyo : Player
             {
                 falling[1].transform.position = new Vector3(x1, y1);
                 falling[0].transform.position = new Vector3(x1, y1 + 1);
+                touchCount++;
             }
 
         }
@@ -272,7 +279,7 @@ public class PuyoPuyo : Player
     /** This function drops all Blocks that can be dropped, and
      *  returns all Blocks that moved from their original position.
      */
-    List<Block> dropAll()
+    List<Block> DropAll()
     {
         List<Block> moved = new List<Block>();
         for (int i = 0; i < _width; i++)
@@ -286,7 +293,7 @@ public class PuyoPuyo : Player
                         if (!grid[i, h])
                         {
                             grid[i, h] = grid[i, j];
-                            grid[i, j].transform.position = new Vector3(i, h);
+                            grid[i, j].transform.position = cornerPos + new Vector3(i, h - _height);
                             grid[i, j] = null;
                             moved.Add(grid[i, h]);
                             break;
@@ -300,7 +307,7 @@ public class PuyoPuyo : Player
     }
 
     // DFS function to find all connected Blocks of matching color
-    List<Block> findChain(Stack<Block> stack)
+    List<Block> FindChain(Stack<Block> stack)
     {
         int bx, by;
 
@@ -316,8 +323,9 @@ public class PuyoPuyo : Player
             }
 
             list.Add(current);
-            bx = (int)current.transform.position.x;
-            by = (int)current.transform.position.y;
+            bx = (int)(current.transform.position.x - cornerPos.x);
+            by = (int)(current.transform.position.y - cornerPos.y + _height);
+
             if (match == Block.Color.None) {
                 match = current.color;
             }
@@ -347,7 +355,7 @@ public class PuyoPuyo : Player
     /** This function checks for any connections made by Blocks in 'moved',
      *  then marks all connected blocks to be deleted during the Update cycle.
      */
-    void checkConnect(List<Block> moved)
+    void CheckConnect(List<Block> moved)
     {
         List<Block> list;
 
@@ -360,7 +368,7 @@ public class PuyoPuyo : Player
 
             Stack<Block> stack = new Stack<Block>();
             stack.Push(startBlock);
-            list = findChain(stack);
+            list = FindChain(stack);
 
             if (list.Count >= 4)
             {
@@ -368,7 +376,7 @@ public class PuyoPuyo : Player
                 clearedTime = 1.0f;
                 foreach (Block block in list)
                 {
-                    grid[(int)block.transform.position.x, (int)block.transform.position.y] = null;
+                    grid[(int)(block.transform.position.x - cornerPos.x), (int)(block.transform.position.y - cornerPos.y + _height)] = null;
 
                     block.destroy = true;
                     cleared++;
@@ -384,11 +392,58 @@ public class PuyoPuyo : Player
         }
     }
 
+    void Drop()
+    {
+        falling[0].GetComponent<Renderer>().enabled = true;
+        
+        grid[gx1, gy1] = falling[0];
+        grid[gx2, gy2] = falling[1];
+        DropAll();
+
+        moved.Add(falling[0]);
+        moved.Add(falling[1]);
+
+        CheckConnect(moved);
+        if (clearedTime > 0)
+        {
+            return;
+        }
+
+        if (grid[2, 11])
+        {
+            Eliminated();
+            return;
+        }
+
+        falling[0] = falling[1] = null;
+
+    }
+
+    void UpdateCoords()
+    {
+        x1 = (int)falling[0].transform.position.x;
+        y1 = (int)falling[0].transform.position.y;
+        x2 = (int)falling[1].transform.position.x;
+        y2 = (int)falling[1].transform.position.y;
+
+        // grid coordinates
+        gx1 = (int)(x1 - cornerPos.x);
+        gy1 = (int)(y1 - cornerPos.y + _height);
+        gx2 = (int)(x2 - cornerPos.x);
+        gy2 = (int)(y2 - cornerPos.y + _height);
+    }
+
+    bool BottomTouching()
+    {
+        return (y1 == cornerPos.y - _height || y2 == cornerPos.y - _height || grid[gx1, gy1 - 1] || grid[gx2, gy2 - 1]);
+    }
+
     // Start is called before the first frame update
     new void Start()
     {
         SetWidth(6);
         SetHeight(12);
+        generator = GameObject.Find("PieceGenerator").GetComponent<PieceGenerator>();
         immediateNext = new Block[2, 2];
         base.Start();
         sounds = GetComponents<AudioSource>();
@@ -399,14 +454,14 @@ public class PuyoPuyo : Player
     }
 
     // Update is called once per frame
-    void Update()
+    new void Update()
     {
-        if (GameScreen.started > 0)
+        if (GameScreen.startTimer > 0)
         {
             return;
         }
 
-        List<Block> moved = new List<Block>();
+        moved = new List<Block>();
 
         if (clearedTime > 0)
         {
@@ -414,8 +469,8 @@ public class PuyoPuyo : Player
 
             if (clearedTime <= 0)
             {
-                moved = dropAll();
-                checkConnect(moved);
+                moved = DropAll();
+                CheckConnect(moved);
             }
             
         }
@@ -425,23 +480,23 @@ public class PuyoPuyo : Player
             {
                 while (next.Count < 1)
                 {
-                    PieceGenerator.getPuyo(transform.parent.gameObject);
+                    if (GameScreen.multiplayer)
+                        generator.getPuyoServerRpc();
+                    else
+                        AddToQueue(UnityEngine.Random.Range(0, 16));
                 }
 
                 CreateFallingPuyoBlock();
                 UpdateNext();
             }
 
-            x1 = (int)falling[0].transform.position.x;
-            y1 = (int)falling[0].transform.position.y;
-            x2 = (int)falling[1].transform.position.x;
-            y2 = (int)falling[1].transform.position.y;
+            UpdateCoords();
 
             if (Input.GetKey(KeyCode.LeftArrow))
             {
                 if (keyPressed == 0 || keyPressed > .5f) // move immediately on first press, then zoom after 0.5s
                 {
-                    moveLeft();
+                    MoveLeft();
                 }
 
                 keyPressed += Time.deltaTime;
@@ -450,18 +505,38 @@ public class PuyoPuyo : Player
             {
                 if (keyPressed == 0 || keyPressed > .5f) // move immediately on first press, then zoom after 0.5s
                 {
-                    moveRight();
+                    MoveRight();
                 }
 
                 keyPressed += Time.deltaTime;
             }
             else if (Input.GetKeyDown(KeyCode.Z))
             {
-                rotateCCW();
+                RotateCCW();
+                if (BottomTouching())
+                    update = 0; // reset timer to prevent immediate drop
+
+                if (touchCount >= touchLimit)
+                {
+                    UpdateCoords();
+                    Drop();
+                    touchCount = 0;
+                    return;
+                }
             }
             else if (Input.GetKeyDown(KeyCode.X))
             {
-                rotateCW();
+                RotateCW();
+                if (BottomTouching())
+                    update = 0; // reset timer to prevent immediate drop
+
+                if (touchCount >= touchLimit)
+                {
+                    UpdateCoords();
+                    Drop();
+                    touchCount = 0;
+                    return;
+                }
             }
 
             if (Input.GetKeyUp(KeyCode.LeftArrow) || Input.GetKeyUp(KeyCode.RightArrow))
@@ -488,36 +563,15 @@ public class PuyoPuyo : Player
 
             if (update > dropTime)
             {
-                falling[0].GetComponent<Renderer>().enabled = true;
-
                 update -= dropTime;
-                if (y1 == 0 || y2 == 0 || grid[x1, y1 - 1] || grid[x2, y2 - 1])
+
+                if (BottomTouching())
                 {
-                    grid[x1, y1] = falling[0];
-                    grid[x2, y2] = falling[1];
-                    dropAll();
-
-                    moved.Add(falling[0]);
-                    moved.Add(falling[1]);
-
-                    checkConnect(moved);
-                    if (clearedTime > 0)
-                    {
-                        return;
-                    }
-
-                    if (grid[2, 11])
-                    {
-                        Eliminated();
-                        return;
-                    }
-
-                    falling[0] = falling[1] = null;
+                    Drop();
                 }
                 else
-                {
-                    moveDown();
-                }
+                    MoveDown();
+                
             }
         }
     }

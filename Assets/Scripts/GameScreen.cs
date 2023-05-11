@@ -20,11 +20,12 @@ public class GameScreen : NetworkBehaviour
     [SerializeField] private TMP_Text gameMode;
 
     //private NetworkVariable<ulong> playerID;
-    private bool multiplayer;
+    public static bool multiplayer;
+    private NetworkVariable<bool> gameStarted = new NetworkVariable<bool>(false);
 
     private readonly Dictionary<ulong, bool> players = new();
 
-    public static float started;
+    public static float startTimer;
     private float readyTime;
 
     public void SetSinglePlayer()
@@ -39,9 +40,7 @@ public class GameScreen : NetworkBehaviour
 
     private void StartGame()
     {
-        Debug.Log("Started game!");
-        started = 3.0f;
-        readyTime = 0;
+        startTimer = 3.0f;
         this.GetComponent<AudioSource>().enabled = true;
 
         for (int i = 0; i < players.Count; i++)
@@ -56,7 +55,7 @@ public class GameScreen : NetworkBehaviour
         startCountdown.gameObject.SetActive(true);
 
         _cam.GetComponent<Camera>().orthographicSize = 7.5f;
-        _cam.transform.position = new Vector3(2.5f, 5.5f, -10);
+        //_cam.transform.position = new Vector3(2.5f, 5.5f, -10);
         //_cam.GetComponent<Camera>().orthographicSize = (float)_height * 0.625f;
         //_cam.transform.position = new Vector3((float)_width / 2 - 0.5f, (float)_height / 2 - 0.5f, -10);
     }
@@ -82,6 +81,11 @@ public class GameScreen : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         //playerID = new NetworkVariable<ulong>(OwnerClientId);
+        gameStarted.OnValueChanged += (bool oldValue, bool newValue) =>
+        {
+            StartGame();
+        };
+
         if (IsServer)
         {
             NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnectedCallback;
@@ -195,16 +199,16 @@ public class GameScreen : NetworkBehaviour
     // Update is called once per frame
     void Update()
     {
-        if (started > 0)
+        if (startTimer > 0)
         {
-            startCountdown.text = Mathf.Round(started).ToString();
-            started -= Time.deltaTime;
+            startCountdown.text = Mathf.Round(startTimer).ToString();
+            startTimer -= Time.deltaTime;
 
-            if (started <= 1)
+            if (startTimer <= 1)
             {
                 startCountdown.text = "GO!";
             }
-            if (started <= 0)
+            if (startTimer <= 0)
             {
                 startCountdown.gameObject.SetActive(false);
             }
@@ -216,12 +220,10 @@ public class GameScreen : NetworkBehaviour
         if (allReady())
         {
             readyTime += Time.deltaTime;
-            if (readyTime >= 1.0f)
+            if (readyTime >= 1.0f && !gameStarted.Value)
             {
                 // if all players are ready for a full second, start the game!
-                StartGame();
-
-                // TODO: may need to unready players!
+                gameStarted.Value = true;
             }
 
             return;

@@ -1,9 +1,15 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Netcode;
 using UnityEngine;
 
-public class PieceGenerator : MonoBehaviour
+public class PieceGenerator : NetworkBehaviour
 {
+    [SerializeField] private GameObject players;
+
+    //private static NetworkVariable<int> puyoPiece = new NetworkVariable<int>(-1);
+    private List<int> tetrisBag = new List<int>();
+
     enum TetrisPieces
     {
         L,
@@ -14,10 +20,6 @@ public class PieceGenerator : MonoBehaviour
         T,
         I
     }
-
-    private List<int> tetrisBag = new List<int>();
-
-    // TODO: PieceGenerator needs to be able to access every player's pieceQueue!
 
     // called when any Tetris player's Queue is too small (< 5). Generate an int representing a new Tetris Piece and
     // pushes it out to all Tetris players' Queues
@@ -36,28 +38,46 @@ public class PieceGenerator : MonoBehaviour
 
     }
 
-    // TODO: called when any Puyo player's Queue is too small (< 3). Generate an int representing a new Puyo Piece and
-    // pushes it out to all Puyo players' Queues
-    public static void getPuyo(GameObject players)
-    {
+    /** Called when any Puyo player's Queue is too small (< 3). Generate an int representing a new Puyo Piece and
+    *   pushes it out to all Puyo players' Queues
+    **/
+
+    [ServerRpc(RequireOwnership = false)]
+    public void getPuyoServerRpc()
+    {        
         int selected = Random.Range(0, 16);
+
         // place the piece into each puyo player's queue!
         foreach (Transform child in players.transform)
         {
             PuyoPuyo puyoPlayer = child.GetComponent<PuyoPuyo>();
             if (puyoPlayer)
             {
-                puyoPlayer.AddToQueue(selected);
+                getPuyoClientRpc(puyoPlayer.OwnerClientId, selected);
             }
             
         }
-        return;
+
+    }
+
+    [ClientRpc]
+    private void getPuyoClientRpc(ulong p, int selected)
+    {
+        foreach (Transform child in players.transform)
+        {
+            PuyoPuyo puyoPlayer = child.GetComponent<PuyoPuyo>();
+            if (p == puyoPlayer.OwnerClientId)
+            {
+                puyoPlayer.AddToQueue(selected);
+            }
+        }
+        
     }
 
     // Start is called before the first frame update
     void Start()
     {
-        
+
     }
 
     // Update is called once per frame
