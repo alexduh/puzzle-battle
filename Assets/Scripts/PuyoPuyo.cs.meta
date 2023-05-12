@@ -5,11 +5,10 @@ MonoImporter:
   serializedVersion: 2
   defaultReferences:
   - _tilePrefab: {fileID: 7193666273123554476, guid: 0bc1e742ee40aba42a07558b1e456018, type: 3}
-  - gameOverText: {instanceID: 0}
-  - go: {instanceID: 0}
+  - gs: {instanceID: 0}
   - _blockPrefab: {fileID: 3604217748896980295, guid: b2b23bb2d771cda458ed6373a4db1277, type: 3}
   - _redPuyo: {fileID: 3604217748896980295, guid: f45125af351d650459359fc31514b5b4, type: 3}
-  - _yellowPuyo: {fileID: 3604217748896980295, guid: 9dda876d8794743449da4c1df1376bd6, type: 3}
+  - _yellowPuyo: {fileID: 3604217748896980295, guid: 51c77aa8f936f6647af45db11c3c0c63, type: 3}
   - _greenPuyo: {fileID: 3604217748896980295, guid: 24578fbbacb5e5b41ad0acd26df6e460, type: 3}
   - _bluePuyo: {fileID: 3604217748896980295, guid: d55f544cba700a14fb4d0a54986a67d6, type: 3}
   executionOrder: 0

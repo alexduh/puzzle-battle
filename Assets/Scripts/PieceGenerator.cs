@@ -43,8 +43,8 @@ public class PieceGenerator : NetworkBehaviour
     **/
 
     [ServerRpc(RequireOwnership = false)]
-    public void getPuyoServerRpc()
-    {        
+    public void GetPuyoServerRpc()
+    {
         int selected = Random.Range(0, 16);
 
         // place the piece into each puyo player's queue!
@@ -53,7 +53,7 @@ public class PieceGenerator : NetworkBehaviour
             PuyoPuyo puyoPlayer = child.GetComponent<PuyoPuyo>();
             if (puyoPlayer)
             {
-                getPuyoClientRpc(puyoPlayer.OwnerClientId, selected);
+                GetPuyoClientRpc(puyoPlayer.OwnerClientId, selected);
             }
             
         }
@@ -61,7 +61,7 @@ public class PieceGenerator : NetworkBehaviour
     }
 
     [ClientRpc]
-    private void getPuyoClientRpc(ulong p, int selected)
+    private void GetPuyoClientRpc(ulong p, int selected)
     {
         foreach (Transform child in players.transform)
         {

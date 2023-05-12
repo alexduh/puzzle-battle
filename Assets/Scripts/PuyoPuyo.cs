@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Netcode;
 using UnityEngine;
 
 public class PuyoPuyo : Player
@@ -23,6 +24,21 @@ public class PuyoPuyo : Player
     List<Block> moved;
     Block[] falling = new Block[2];
     int x1, y1, x2, y2, gx1, gx2, gy1, gy2;
+
+    // Start is called before the first frame update
+    new void Start()
+    {
+        SetWidth(6);
+        SetHeight(12);
+        generator = GameObject.Find("PieceGenerator").GetComponent<PieceGenerator>();
+        immediateNext = new Block[2, 2];
+        base.Start();
+        sounds = GetComponents<AudioSource>();
+        connect = sounds[0];
+        move = sounds[1];
+        rotate = sounds[2];
+        grid = new Block[_width, _height + 2];
+    }
 
     public void AddToQueue(int selected)
     {
@@ -438,19 +454,10 @@ public class PuyoPuyo : Player
         return (y1 == cornerPos.y - _height || y2 == cornerPos.y - _height || grid[gx1, gy1 - 1] || grid[gx2, gy2 - 1]);
     }
 
-    // Start is called before the first frame update
-    new void Start()
+    [ServerRpc(RequireOwnership = false)]
+    void UpdateOpponentServerRpc()
     {
-        SetWidth(6);
-        SetHeight(12);
-        generator = GameObject.Find("PieceGenerator").GetComponent<PieceGenerator>();
-        immediateNext = new Block[2, 2];
-        base.Start();
-        sounds = GetComponents<AudioSource>();
-        connect = sounds[0];
-        move = sounds[1];
-        rotate = sounds[2];
-        grid = new Block[_width, _height+2];
+
     }
 
     // Update is called once per frame
@@ -478,12 +485,14 @@ public class PuyoPuyo : Player
         {
             if (!falling[0] || !falling[1])
             {
-                while (next.Count < 1)
+                if (next.Count < 1)
                 {
                     if (GameScreen.multiplayer)
-                        generator.getPuyoServerRpc();
+                        generator.GetPuyoServerRpc();
                     else
                         AddToQueue(UnityEngine.Random.Range(0, 16));
+
+                    return;
                 }
 
                 CreateFallingPuyoBlock();

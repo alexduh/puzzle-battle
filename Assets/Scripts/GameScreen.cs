@@ -69,13 +69,10 @@ public class GameScreen : NetworkBehaviour
 
     public void OnReadyClicked()
     {
-        if (multiplayer) {
+        if (multiplayer)
             SetReadyServerRpc(NetworkManager.Singleton.LocalClientId);
-        }
         else
-        {
             StartGame();
-        }
     }
 
     public override void OnNetworkSpawn()
