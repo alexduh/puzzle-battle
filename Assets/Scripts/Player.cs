@@ -86,10 +86,6 @@ public class Player : NetworkBehaviour
     protected virtual void Start()
     {
         GenerateGrid();
-        if (GameScreen.multiplayer && !IsOwner)
-        {
-            this.enabled = false;
-        }
 
         gs = Object.FindObjectOfType<GameScreen>();
     }

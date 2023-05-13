@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 public class PuyoPuyo : Player
 {
@@ -24,6 +25,26 @@ public class PuyoPuyo : Player
     List<Block> moved;
     Block[] falling = new Block[2];
     int x1, y1, x2, y2, gx1, gx2, gy1, gy2;
+
+    private struct MovementFlags : INetworkSerializable
+    {
+        public bool movedLeft;
+        public bool movedRight;
+        public bool movedDown;
+        public bool rotatedCW;
+        public bool rotatedCCW;
+        public bool dropped;
+
+        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+        {
+            serializer.SerializeValue(ref movedLeft);
+            serializer.SerializeValue(ref movedRight);
+            serializer.SerializeValue(ref movedDown);
+            serializer.SerializeValue(ref rotatedCW);
+            serializer.SerializeValue(ref rotatedCCW);
+            serializer.SerializeValue(ref dropped);
+        }
+    }
 
     // Start is called before the first frame update
     new void Start()
@@ -85,6 +106,22 @@ public class PuyoPuyo : Player
         falling[0].transform.position = cornerPos + new Vector3(2, 0);
         falling[1].transform.position = cornerPos + new Vector3(2, 1);
         touchCount = 0;
+    }
+
+    void GetBlock()
+    {
+        if (next.Count < 1)
+        {
+            if (GameScreen.multiplayer)
+                generator.GetPuyoServerRpc();
+            else
+                AddToQueue(UnityEngine.Random.Range(0, 16));
+
+            return;
+        }
+
+        CreateFallingPuyoBlock();
+        UpdateNext();
     }
 
     void UpdateNext()
@@ -455,14 +492,40 @@ public class PuyoPuyo : Player
     }
 
     [ServerRpc(RequireOwnership = false)]
-    void UpdateOpponentServerRpc()
+    void UpdateOpponentServerRpc(ulong clientId, MovementFlags flags)
     {
+        UpdateOpponentClientRpc(clientId, flags);
+    }
 
+    [ClientRpc]
+    void UpdateOpponentClientRpc(ulong clientId, MovementFlags flags)
+    {
+        if (NetworkManager.Singleton.LocalClientId == clientId)
+            return;
+
+        if (falling[0] && falling[1])
+            UpdateCoords();
+
+        if (flags.movedLeft)
+            MoveLeft();
+        if (flags.movedRight)
+            MoveRight();
+        if (flags.movedDown)
+            MoveDown();
+        if (flags.rotatedCW)
+            RotateCW();
+        if (flags.rotatedCCW)
+            RotateCCW();
+        if (flags.dropped)
+            Drop();
+        // Update opponent's grid
     }
 
     // Update is called once per frame
     new void Update()
     {
+        MovementFlags flags = new MovementFlags();
+
         if (GameScreen.startTimer > 0)
         {
             return;
@@ -485,19 +548,11 @@ public class PuyoPuyo : Player
         {
             if (!falling[0] || !falling[1])
             {
-                if (next.Count < 1)
-                {
-                    if (GameScreen.multiplayer)
-                        generator.GetPuyoServerRpc();
-                    else
-                        AddToQueue(UnityEngine.Random.Range(0, 16));
-
-                    return;
-                }
-
-                CreateFallingPuyoBlock();
-                UpdateNext();
+                GetBlock();
             }
+
+            if (!IsOwner)
+                return;
 
             UpdateCoords();
 
@@ -506,6 +561,7 @@ public class PuyoPuyo : Player
                 if (keyPressed == 0 || keyPressed > .5f) // move immediately on first press, then zoom after 0.5s
                 {
                     MoveLeft();
+                    flags.movedLeft = true;
                 }
 
                 keyPressed += Time.deltaTime;
@@ -515,6 +571,7 @@ public class PuyoPuyo : Player
                 if (keyPressed == 0 || keyPressed > .5f) // move immediately on first press, then zoom after 0.5s
                 {
                     MoveRight();
+                    flags.movedRight = true;
                 }
 
                 keyPressed += Time.deltaTime;
@@ -522,6 +579,7 @@ public class PuyoPuyo : Player
             else if (Input.GetKeyDown(KeyCode.Z))
             {
                 RotateCCW();
+                flags.rotatedCCW = true;
                 if (BottomTouching())
                     update = 0; // reset timer to prevent immediate drop
 
@@ -530,12 +588,14 @@ public class PuyoPuyo : Player
                     UpdateCoords();
                     Drop();
                     touchCount = 0;
+                    flags.dropped = true;
                     return;
                 }
             }
             else if (Input.GetKeyDown(KeyCode.X))
             {
                 RotateCW();
+                flags.rotatedCW = true;
                 if (BottomTouching())
                     update = 0; // reset timer to prevent immediate drop
 
@@ -577,11 +637,18 @@ public class PuyoPuyo : Player
                 if (BottomTouching())
                 {
                     Drop();
+                    flags.dropped = true;
                 }
                 else
+                {
                     MoveDown();
+                    flags.movedDown = true;
+                }
+                    
                 
             }
+
+            UpdateOpponentServerRpc(OwnerClientId, flags);
         }
     }
 }
