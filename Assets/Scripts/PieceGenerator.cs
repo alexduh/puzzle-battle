@@ -52,9 +52,7 @@ public class PieceGenerator : NetworkBehaviour
         {
             PuyoPuyo puyoPlayer = child.GetComponent<PuyoPuyo>();
             if (puyoPlayer)
-            {
                 GetPuyoClientRpc(puyoPlayer.OwnerClientId, selected);
-            }
             
         }
 
@@ -67,9 +65,7 @@ public class PieceGenerator : NetworkBehaviour
         {
             PuyoPuyo puyoPlayer = child.GetComponent<PuyoPuyo>();
             if (p == puyoPlayer.OwnerClientId)
-            {
                 puyoPlayer.AddToQueue(selected);
-            }
         }
         
     }

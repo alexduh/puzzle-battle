@@ -19,7 +19,7 @@ public class PuyoPuyo : Player
     private float update, clearedTime, primaryBlink;
     private float keyPressed;
     private PieceGenerator generator;
-    private int touchLimit = 8;
+    private int touchLimit = 12;
     private int touchCount;
 
     List<Block> moved;
@@ -44,6 +44,34 @@ public class PuyoPuyo : Player
             serializer.SerializeValue(ref rotatedCCW);
             serializer.SerializeValue(ref dropped);
         }
+    }
+
+    void OnDisable()
+    {
+        if (falling[0])
+        {
+            Destroy(falling[0].gameObject);
+            falling[0] = null;
+        }
+        if (falling[1])
+        {
+            Destroy(falling[1].gameObject);
+            falling[1] = null;
+        }
+
+        for (int i = 0; i < immediateNext.GetLength(0); i++)
+        {
+            for (int j = 0; j < immediateNext.GetLength(1); j++)
+            {
+                Destroy(immediateNext[i, j].gameObject);
+                immediateNext[i, j] = null;
+            }
+        }
+
+        while (next.Count > 0)
+            next.Dequeue();
+
+        DeleteGrid();
     }
 
     // Start is called before the first frame update
@@ -116,12 +144,13 @@ public class PuyoPuyo : Player
                 generator.GetPuyoServerRpc();
             else
                 AddToQueue(UnityEngine.Random.Range(0, 16));
-
-            return;
+        }
+        if (next.Count >= 1)
+        {
+            CreateFallingPuyoBlock();
+            UpdateNext();
         }
 
-        CreateFallingPuyoBlock();
-        UpdateNext();
     }
 
     void UpdateNext()
@@ -159,6 +188,7 @@ public class PuyoPuyo : Player
 
     void MoveLeft()
     {
+        UpdateCoords();
         if (LeftOpen(falling[0]) && LeftOpen(falling[1]))
         {
             falling[0].transform.position = new Vector3(x1 - 1, y1);
@@ -169,6 +199,7 @@ public class PuyoPuyo : Player
 
     void MoveRight()
     {
+        UpdateCoords();
         if (RightOpen(falling[0]) && RightOpen(falling[1]))
         {
             falling[0].transform.position = new Vector3(x1 + 1, y1);
@@ -179,6 +210,7 @@ public class PuyoPuyo : Player
 
     void MoveDown()
     {
+        UpdateCoords();
         falling[0].transform.position = new Vector3(x1, y1 - 1);
         falling[1].transform.position = new Vector3(x2, y2 - 1);
     }
@@ -187,6 +219,7 @@ public class PuyoPuyo : Player
 
     void RotateCCW()
     {
+        UpdateCoords();
         if (y2 > y1)
         {
             if (LeftOpen(falling[0]))
@@ -250,7 +283,6 @@ public class PuyoPuyo : Player
             {
                 falling[1].transform.position = new Vector3(x1, y1);
                 falling[0].transform.position = new Vector3(x1, y1 + 1);
-                touchCount++;
             }
         }
 
@@ -259,6 +291,7 @@ public class PuyoPuyo : Player
 
     void RotateCW()
     {
+        UpdateCoords();
         if (y2 > y1)
         {
             if (RightOpen(falling[0]))
@@ -317,7 +350,6 @@ public class PuyoPuyo : Player
             {
                 falling[1].transform.position = new Vector3(x1, y1);
                 falling[0].transform.position = new Vector3(x1, y1 + 1);
-                touchCount++;
             }
 
         }
@@ -447,6 +479,7 @@ public class PuyoPuyo : Player
 
     void Drop()
     {
+        UpdateCoords();
         falling[0].GetComponent<Renderer>().enabled = true;
         
         grid[gx1, gy1] = falling[0];
@@ -488,6 +521,7 @@ public class PuyoPuyo : Player
 
     bool BottomTouching()
     {
+        UpdateCoords();
         return (y1 == cornerPos.y - _height || y2 == cornerPos.y - _height || grid[gx1, gy1 - 1] || grid[gx2, gy2 - 1]);
     }
 
@@ -525,11 +559,15 @@ public class PuyoPuyo : Player
     new void Update()
     {
         MovementFlags flags = new MovementFlags();
+        flags.movedDown = false;
+        flags.movedLeft = false;
+        flags.movedRight = false;
+        flags.rotatedCW = false;
+        flags.rotatedCCW = false;
+        flags.dropped = false;
 
         if (GameScreen.startTimer > 0)
-        {
             return;
-        }
 
         moved = new List<Block>();
 
@@ -547,14 +585,10 @@ public class PuyoPuyo : Player
         else
         {
             if (!falling[0] || !falling[1])
-            {
                 GetBlock();
-            }
 
-            if (!IsOwner)
+            if (!falling[0] || !falling[1] || (GameScreen.multiplayer && !IsOwner))
                 return;
-
-            UpdateCoords();
 
             if (Input.GetKey(KeyCode.LeftArrow))
             {
@@ -576,51 +610,47 @@ public class PuyoPuyo : Player
 
                 keyPressed += Time.deltaTime;
             }
-            else if (Input.GetKeyDown(KeyCode.Z))
+            if (Input.GetKeyDown(KeyCode.Z))
             {
                 RotateCCW();
                 flags.rotatedCCW = true;
                 if (BottomTouching())
+                {
+                    touchCount++;
                     update = 0; // reset timer to prevent immediate drop
+                }
 
                 if (touchCount >= touchLimit)
                 {
-                    UpdateCoords();
-                    Drop();
                     touchCount = 0;
-                    flags.dropped = true;
-                    return;
+                    update = dropTime;
                 }
             }
-            else if (Input.GetKeyDown(KeyCode.X))
+            if (Input.GetKeyDown(KeyCode.X))
             {
                 RotateCW();
                 flags.rotatedCW = true;
                 if (BottomTouching())
+                {
+                    touchCount++;
                     update = 0; // reset timer to prevent immediate drop
+                }
+                    
 
                 if (touchCount >= touchLimit)
                 {
-                    UpdateCoords();
-                    Drop();
                     touchCount = 0;
-                    return;
+                    update = dropTime;
                 }
             }
 
             if (Input.GetKeyUp(KeyCode.LeftArrow) || Input.GetKeyUp(KeyCode.RightArrow))
-            {
                 keyPressed = 0;
-            }
 
             if (Input.GetKey(KeyCode.DownArrow))
-            {
                 update += 10 * Time.deltaTime;
-            }
             else
-            {
                 update += Time.deltaTime;
-            }
 
             primaryBlink += Time.deltaTime;
 
@@ -630,7 +660,7 @@ public class PuyoPuyo : Player
                 primaryBlink = 0;
             }
 
-            if (update > dropTime)
+            if (update >= dropTime)
             {
                 update -= dropTime;
 

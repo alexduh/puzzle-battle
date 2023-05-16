@@ -3107,6 +3107,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   mainMenu: {fileID: 57505617}
+  playerList: {fileID: 1021413250}
+  readyButton: {fileID: 2001013920}
   update: 0
 --- !u!82 &1921765536
 AudioSource:
@@ -3313,7 +3315,7 @@ GameObject:
   - component: {fileID: 2001013923}
   - component: {fileID: 2001013922}
   m_Layer: 5
-  m_Name: Button
+  m_Name: ReadyButton
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

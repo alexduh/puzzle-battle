@@ -29,7 +29,7 @@ public class Player : NetworkBehaviour
         _height = h;
     }
 
-    void deleteGrid()
+    protected void DeleteGrid()
     {
         for (int i = 0; i < _width; i++)
         {
@@ -46,9 +46,11 @@ public class Player : NetworkBehaviour
     // Show "GAME OVER!" message for 5 seconds, then hide message and return to Main Menu
     protected void Eliminated()
     {
-        deleteGrid();
-        gs.EndGame();
-        this.enabled = false;
+        if (GameScreen.multiplayer)
+            gs.EndGameServerRpc();
+        else
+            gs.EndGame();
+        //this.enabled = false;
     }
 
     void GenerateGrid()
@@ -67,9 +69,8 @@ public class Player : NetworkBehaviour
 
     }
 
-    private void OnEnable()
+    protected void OnEnable()
     {
-        this.transform.GetChild(0).gameObject.SetActive(false);
         cleared = 0;
         level = 1;
         dropTime = 1.0f;

@@ -21,7 +21,7 @@ public class GameScreen : NetworkBehaviour
 
     //private NetworkVariable<ulong> playerID;
     public static bool multiplayer;
-    private NetworkVariable<bool> gameStarted = new NetworkVariable<bool>(false);
+    private bool gameRunning = false;
 
     private readonly Dictionary<ulong, bool> players = new();
 
@@ -40,13 +40,16 @@ public class GameScreen : NetworkBehaviour
 
     private void StartGame()
     {
+        gameRunning = true;
         startTimer = 3.0f;
         this.GetComponent<AudioSource>().enabled = true;
 
-        for (int i = 0; i < players.Count; i++)
+        foreach (Transform child in playerList.transform)
         {
-            playerList.transform.GetChild(i).gameObject.GetComponent<PuyoPuyo>().enabled = true;
+            child.gameObject.GetComponent<PuyoPuyo>().enabled = true;
+            child.GetChild(0).gameObject.SetActive(false);
         }
+            
 
         SetReadyServerRpc(NetworkManager.Singleton.LocalClientId);
 
@@ -55,7 +58,6 @@ public class GameScreen : NetworkBehaviour
         startCountdown.gameObject.SetActive(true);
 
         _cam.GetComponent<Camera>().orthographicSize = 7.5f;
-        //_cam.transform.position = new Vector3(2.5f, 5.5f, -10);
         //_cam.GetComponent<Camera>().orthographicSize = (float)_height * 0.625f;
         //_cam.transform.position = new Vector3((float)_width / 2 - 0.5f, (float)_height / 2 - 0.5f, -10);
     }
@@ -63,8 +65,12 @@ public class GameScreen : NetworkBehaviour
     // Show "GAME OVER!" message for 5 seconds, then hide message and return to Main Menu
     public void EndGame()
     {
+        gameRunning = false;
         this.GetComponent<AudioSource>().enabled = false;
         go.SetActive(true);
+
+        foreach (Transform child in playerList.transform)
+            child.gameObject.GetComponent<PuyoPuyo>().enabled = false;
     }
 
     public void OnReadyClicked()
@@ -78,11 +84,6 @@ public class GameScreen : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         //playerID = new NetworkVariable<ulong>(OwnerClientId);
-        gameStarted.OnValueChanged += (bool oldValue, bool newValue) =>
-        {
-            StartGame();
-        };
-
         if (IsServer)
         {
             NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnectedCallback;
@@ -147,7 +148,8 @@ public class GameScreen : NetworkBehaviour
         
         foreach (Player player in playerList)
         {
-            player.transform.GetChild(1).gameObject.SetActive(players[player.OwnerClientId]);
+            if (players.ContainsKey(player.OwnerClientId))
+                player.transform.GetChild(1).gameObject.SetActive(players[player.OwnerClientId]);
         }
 
     }
@@ -187,6 +189,32 @@ public class GameScreen : NetworkBehaviour
         gameMode.gameObject.SetActive(true);
     }
 
+    [ServerRpc(RequireOwnership = false)]
+    private void StartGameServerRpc()
+    {
+        StartGameClientRpc();
+    }
+
+    [ClientRpc]
+    private void StartGameClientRpc()
+    {
+        if (!gameRunning)
+            StartGame();
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    public void EndGameServerRpc()
+    {
+        EndGameClientRpc();
+    }
+
+    [ClientRpc]
+    private void EndGameClientRpc()
+    {
+        if (gameRunning)
+            EndGame();
+    }
+
     // Start is called before the first frame update
     void Start()
     {
@@ -217,10 +245,10 @@ public class GameScreen : NetworkBehaviour
         if (allReady())
         {
             readyTime += Time.deltaTime;
-            if (readyTime >= 1.0f && !gameStarted.Value)
+            if (readyTime >= 1.0f)
             {
                 // if all players are ready for a full second, start the game!
-                gameStarted.Value = true;
+                StartGameServerRpc();
             }
 
             return;

@@ -1,10 +1,13 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using static UnityEditor.Experimental.GraphView.GraphView;
 
 public class GameOver : MonoBehaviour
 {
     [SerializeField] private GameObject mainMenu;
+    [SerializeField] private GameObject playerList;
+    [SerializeField] private GameObject readyButton;
 
     public float update;
 
@@ -27,6 +30,11 @@ public class GameOver : MonoBehaviour
         {
             this.gameObject.SetActive(false);
             mainMenu.SetActive(true);
+            readyButton.gameObject.SetActive(true);
+
+            foreach (Transform child in playerList.transform)
+                child.GetChild(0).gameObject.SetActive(true);
+
         }
 
     }
