@@ -63,11 +63,15 @@ public class GameScreen : NetworkBehaviour
     }
 
     // Show "GAME OVER!" message for 5 seconds, then hide message and return to Main Menu
-    public void EndGame()
+    public void EndGame(ulong playerId)
     {
         gameRunning = false;
         this.GetComponent<AudioSource>().enabled = false;
         go.SetActive(true);
+        if (multiplayer && NetworkManager.Singleton.LocalClientId != playerId)
+            go.GetComponent<GameOver>().Win();
+        else
+            go.GetComponent<GameOver>().Lose();
 
         foreach (Transform child in playerList.transform)
             child.gameObject.GetComponent<PuyoPuyo>().enabled = false;
@@ -203,16 +207,16 @@ public class GameScreen : NetworkBehaviour
     }
 
     [ServerRpc(RequireOwnership = false)]
-    public void EndGameServerRpc()
+    public void EndGameServerRpc(ulong playerId) // ID of the player who was eliminated
     {
-        EndGameClientRpc();
+        EndGameClientRpc(playerId);
     }
 
     [ClientRpc]
-    private void EndGameClientRpc()
+    private void EndGameClientRpc(ulong playerId)
     {
         if (gameRunning)
-            EndGame();
+            EndGame(playerId);
     }
 
     // Start is called before the first frame update

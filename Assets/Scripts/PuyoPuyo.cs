@@ -22,6 +22,10 @@ public class PuyoPuyo : Player
     private int touchLimit = 12;
     private int touchCount;
 
+    private int scoreRemainder;
+    private int targetScore = 70;
+    private int chainCount;
+
     List<Block> moved;
     Block[] falling = new Block[2];
     int x1, y1, x2, y2, gx1, gx2, gy1, gy2;
@@ -46,8 +50,15 @@ public class PuyoPuyo : Player
         }
     }
 
-    void OnDisable()
+    new void OnEnable()
     {
+        base.OnEnable();
+        scoreRemainder = 0;
+    }
+
+    new void OnDisable()
+    {
+        base.OnDisable();
         if (falling[0])
         {
             Destroy(falling[0].gameObject);
@@ -443,13 +454,14 @@ public class PuyoPuyo : Player
     void CheckConnect(List<Block> moved)
     {
         List<Block> list;
+        bool chainIncremented = false;
+        int clearedCurrent = 0;
+        List<Block.Color> colors = new List<Block.Color>();
 
         foreach (Block startBlock in moved)
         {           
             if (startBlock.color == Block.Color.None)
-            {
                 continue;
-            }
 
             Stack<Block> stack = new Stack<Block>();
             stack.Push(startBlock);
@@ -457,6 +469,16 @@ public class PuyoPuyo : Player
 
             if (list.Count >= 4)
             {
+                if (!colors.Contains(list[0].color))
+                    colors.Add(list[0].color); // add color to list of colors cleared
+
+                if (!chainIncremented)
+                {
+                    chainIncremented = true;
+                    chainCount++;
+                }
+
+                connect.pitch = .35f + .05f * chainCount;
                 connect.Play();
                 clearedTime = 1.0f;
                 foreach (Block block in list)
@@ -464,17 +486,24 @@ public class PuyoPuyo : Player
                     grid[(int)(block.transform.position.x - cornerPos.x), (int)(block.transform.position.y - cornerPos.y + _height)] = null;
 
                     block.destroy = true;
-                    cleared++;
-                    if (cleared >= 20)
+                    clearedCurrent++;
+                    clearedTotal++;
+                    if (clearedTotal >= 40)
                     {
                         level++;
                         dropTime *= .9f; // decrease dropTime by 10%
-                        cleared -= 20;
+                        clearedTotal -= 40;
                     }
                 }
             }
-                    
         }
+
+        if (clearedCurrent > 0)
+            scoreObject.CalculateScore(clearedCurrent, chainCount, colors.Count);
+
+        if (!chainIncremented)
+            chainCount = 0;
+
     }
 
     void Drop()
@@ -491,9 +520,7 @@ public class PuyoPuyo : Player
 
         CheckConnect(moved);
         if (clearedTime > 0)
-        {
             return;
-        }
 
         if (grid[2, 11])
         {
@@ -502,7 +529,6 @@ public class PuyoPuyo : Player
         }
 
         falling[0] = falling[1] = null;
-
     }
 
     void UpdateCoords()

@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
+using UnityEngine.SocialPlatforms.Impl;
 
 public class Player : NetworkBehaviour
 {
@@ -9,11 +10,12 @@ public class Player : NetworkBehaviour
     [SerializeField] private Tile _tilePrefab;
     [SerializeField] private GameScreen gs;
 
+    protected Score scoreObject;
     protected Block[,] grid;
     protected Block[,] immediateNext;
     protected Queue<int> next = new Queue<int>();
 
-    protected int cleared; // Blocks destroyed
+    protected int clearedTotal; // Blocks destroyed
     protected int level; // increase based on Blocks destroyed
     protected float dropTime; // decrease based on level
     protected Vector3 playerPos = Vector3.zero;
@@ -46,11 +48,10 @@ public class Player : NetworkBehaviour
     // Show "GAME OVER!" message for 5 seconds, then hide message and return to Main Menu
     protected void Eliminated()
     {
-        if (GameScreen.multiplayer)
-            gs.EndGameServerRpc();
-        else
-            gs.EndGame();
-        //this.enabled = false;
+        if (!GameScreen.multiplayer)
+            gs.EndGame(0);
+        else if (IsOwner)
+            gs.EndGameServerRpc(OwnerClientId);
     }
 
     void GenerateGrid()
@@ -69,9 +70,22 @@ public class Player : NetworkBehaviour
 
     }
 
+    void Awake()
+    {
+        scoreObject = transform.GetChild(2).GetComponent<Score>();
+    }
+
+    protected void OnDisable()
+    {
+        scoreObject.gameObject.SetActive(false); // Hide Score
+    }
+
     protected void OnEnable()
     {
-        cleared = 0;
+        scoreObject.gameObject.SetActive(true); // Show Score
+        scoreObject.UpdateScore(0); // Reset Score
+
+        clearedTotal = 0;
         level = 1;
         dropTime = 1.0f;
     }
