@@ -1,8 +1,6 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
-using UnityEngine.SocialPlatforms.Impl;
 
 public class Player : NetworkBehaviour
 {
