@@ -8,13 +8,16 @@ public class Player : NetworkBehaviour
 {
     [SerializeField] protected int _width, _height;
     [SerializeField] private Tile _tilePrefab;
-    [SerializeField] private GameScreen gs;
+    [SerializeField] protected GameScreen gs;
 
     protected Score scoreObject;
     protected Block[,] grid;
     protected Block[,] immediateNext;
     protected Queue<int> next = new Queue<int>();
 
+    protected ulong targetPlayerId;
+    protected int receivingGarbage;
+    protected int incomingGarbage;
     protected int clearedTotal; // Blocks destroyed
     protected int level; // increase based on Blocks destroyed
     protected float dropTime; // decrease based on level
@@ -31,11 +34,26 @@ public class Player : NetworkBehaviour
         _height = h;
     }
 
+    void GenerateGrid()
+    {
+        playerPos = Camera.main.ScreenToWorldPoint(transform.position);
+        cornerPos = new Vector3(Mathf.Round(playerPos.x - 2.5f), 6f);
+
+        for (int x = 0; x < _width; x++)
+        {
+            for (int y = 0; y < _height; y++)
+            {
+                var spawnedTile = Instantiate(_tilePrefab, cornerPos + new Vector3(x, y - _height), Quaternion.identity);
+                spawnedTile.name = $"Tile {x} {y}";
+            }
+        }
+    }
+
     protected void DeleteGrid()
     {
         for (int i = 0; i < _width; i++)
         {
-            for (int j = 0; j < (_height + 2); j++)
+            for (int j = 0; j < (_height * 2); j++)
             {
                 if (grid[i, j])
                 {
@@ -54,20 +72,37 @@ public class Player : NetworkBehaviour
             gs.EndGameServerRpc(OwnerClientId);
     }
 
-    void GenerateGrid()
+    protected void ProcessGarbage(int amount)
     {
-        playerPos = Camera.main.ScreenToWorldPoint(transform.position);
-        cornerPos = new Vector3(Mathf.Round(playerPos.x - 2.5f), 6f);
-
-        for (int x = 0; x < _width; x++)
+        if (incomingGarbage > amount)
+            incomingGarbage -= amount;
+        else
         {
-            for (int y = 0; y < _height; y++)
-            {
-                var spawnedTile = Instantiate(_tilePrefab, cornerPos + new Vector3(x, y - _height), Quaternion.identity);
-                spawnedTile.name = $"Tile {x} {y}";
-            }
+            amount -= incomingGarbage;
+            incomingGarbage = 0;
+        }
+        
+        if (receivingGarbage > amount)
+            receivingGarbage -= amount;
+        else
+        {
+            amount -= receivingGarbage;
+            receivingGarbage = 0;
         }
 
+        if (amount > 0)
+            gs.SendGarbage(targetPlayerId, amount);
+    }
+
+    public void ReceiveGarbage(int amount)
+    {
+        receivingGarbage += amount;
+    }
+
+    public void FinishReceiveGarbage()
+    {
+        incomingGarbage = receivingGarbage;
+        receivingGarbage = 0;
     }
 
     void Awake()
@@ -84,6 +119,8 @@ public class Player : NetworkBehaviour
     {
         scoreObject.gameObject.SetActive(true); // Show Score
         scoreObject.UpdateScore(0); // Reset Score
+        receivingGarbage = 0;
+        incomingGarbage = 0;
 
         clearedTotal = 0;
         level = 1;

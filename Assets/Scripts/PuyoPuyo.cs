@@ -4,10 +4,12 @@ using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UIElements;
+using static Unity.Collections.AllocatorManager;
+using static UnityEditor.FilePathAttribute;
 
 public class PuyoPuyo : Player
 {
-    [SerializeField] private Block _blockPrefab;
+    [SerializeField] private Block _nuisancePuyo;
     [SerializeField] private Block _redPuyo;
     [SerializeField] private Block _yellowPuyo;
     [SerializeField] private Block _greenPuyo;
@@ -54,6 +56,17 @@ public class PuyoPuyo : Player
     {
         base.OnEnable();
         scoreRemainder = 0;
+
+        // Set the target player to the opponent
+        if (GameScreen.multiplayer)
+        {
+            foreach (Transform child in transform.parent)
+            {
+                PuyoPuyo opponent = child.gameObject.GetComponent<PuyoPuyo>();
+                if (opponent.OwnerClientId != OwnerClientId)
+                    targetPlayerId = opponent.OwnerClientId;
+            }
+        }   
     }
 
     new void OnDisable()
@@ -97,7 +110,7 @@ public class PuyoPuyo : Player
         connect = sounds[0];
         move = sounds[1];
         rotate = sounds[2];
-        grid = new Block[_width, _height + 2];
+        grid = new Block[_width, _height * 2];
     }
 
     public void AddToQueue(int selected)
@@ -380,7 +393,7 @@ public class PuyoPuyo : Player
         List<Block> moved = new List<Block>();
         for (int i = 0; i < _width; i++)
         {
-            for (int j = 0; j < _height; j++)
+            for (int j = 0; j < _height * 2; j++)
             {
                 if (grid[i, j])
                 {
@@ -391,7 +404,9 @@ public class PuyoPuyo : Player
                             grid[i, h] = grid[i, j];
                             grid[i, j].transform.position = cornerPos + new Vector3(i, h - _height);
                             grid[i, j] = null;
-                            moved.Add(grid[i, h]);
+                            if (grid[i, h].color != Block.Color.None) // do not add nuisance blocks to the list, they'll never cause a match
+                                moved.Add(grid[i, h]);
+
                             break;
                         }
                     }
@@ -448,6 +463,11 @@ public class PuyoPuyo : Player
         return list;
     }
 
+    int nCr(int n, int r)
+    {
+        return n! / (r! * (n - r)!);
+    }
+
     /** This function checks for any connections made by Blocks in 'moved',
      *  then marks all connected blocks to be deleted during the Update cycle.
      */
@@ -483,6 +503,7 @@ public class PuyoPuyo : Player
                 clearedTime = 1.0f;
                 foreach (Block block in list)
                 {
+                    ClearAdjacentNuisance(block);
                     grid[(int)(block.transform.position.x - cornerPos.x), (int)(block.transform.position.y - cornerPos.y + _height)] = null;
 
                     block.destroy = true;
@@ -499,11 +520,82 @@ public class PuyoPuyo : Player
         }
 
         if (clearedCurrent > 0)
-            scoreObject.CalculateScore(clearedCurrent, chainCount, colors.Count);
-
+        {
+            scoreRemainder += scoreObject.CalculateScore(clearedCurrent, chainCount, colors.Count);
+            if (GameScreen.multiplayer)
+            {
+                int garbage = CalculateGarbage();
+                ProcessGarbage(garbage);
+            }
+            
+        }
+            
         if (!chainIncremented)
+        {
             chainCount = 0;
+            if (grid.Length == 0) // TODO: fix the length calculation to work!
+                scoreRemainder += 2100; // all clear bonus (30 nuisance blocks) TODO: create function for this, add SFX and text popup
 
+            gs.ChainEnded(targetPlayerId);
+            SpawnGarbage();
+        }
+            
+    }
+    void ClearAdjacentNuisance(Block b)
+    {
+        int bx = (int)(b.transform.position.x - cornerPos.x);
+        int by = (int)(b.transform.position.y - cornerPos.y + _height);
+
+        if (bx < _width-1 && grid[bx+1, by] && grid[bx+1, by].color == Block.Color.None)
+        {
+            grid[bx + 1, by].destroy = true;
+            grid[bx + 1, by] = null;
+        }
+        if (bx > 0 && grid[bx-1, by] && grid[bx-1, by].color == Block.Color.None)
+        {
+            grid[bx - 1, by].destroy = true;
+            grid[bx - 1, by] = null;
+        }
+        if (by < _height*2 && grid[bx, by+1] && grid[bx, by+1].color == Block.Color.None)
+        {
+            grid[bx, by + 1].destroy = true;
+            grid[bx, by + 1] = null;
+        }
+        if (by > 0 && grid[bx, by-1] && grid[bx, by-1].color == Block.Color.None)
+        {
+            grid[bx, by - 1].destroy = true;
+            grid[bx, by - 1] = null;
+        }
+            
+    }
+
+    int CalculateGarbage()
+    {
+        int garbageSent = scoreRemainder / targetScore;
+        scoreRemainder %= targetScore;
+
+        return garbageSent;
+    }
+
+    void SpawnGarbage()
+    {
+        int x = 0;
+        int y = _height - 1;
+        if (incomingGarbage > 0)
+            Debug.Log("Player " + OwnerClientId + " Incoming garbage: " + incomingGarbage);
+
+        for (; incomingGarbage > 0; incomingGarbage--)
+        {
+            grid[x, y + _height] = Instantiate(_nuisancePuyo, cornerPos + new Vector3(x, y), Quaternion.identity);
+            x++;
+            if (x >= _width)
+            {
+                x = 0;
+                y--;
+            }
+        }
+
+        DropAll();
     }
 
     void Drop()
@@ -521,6 +613,8 @@ public class PuyoPuyo : Player
         CheckConnect(moved);
         if (clearedTime > 0)
             return;
+
+        SpawnGarbage();
 
         if (grid[2, 11])
         {
@@ -662,7 +756,6 @@ public class PuyoPuyo : Player
                     update = 0; // reset timer to prevent immediate drop
                 }
                     
-
                 if (touchCount >= touchLimit)
                 {
                     touchCount = 0;
@@ -701,7 +794,6 @@ public class PuyoPuyo : Player
                     flags.movedDown = true;
                 }
                     
-                
             }
 
             UpdateOpponentServerRpc(OwnerClientId, flags);

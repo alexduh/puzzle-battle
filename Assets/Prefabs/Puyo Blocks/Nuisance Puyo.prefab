@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 3604217748896980293}
   - component: {fileID: 3604217748896980295}
   m_Layer: 0
-  m_Name: Trash Puyo
+  m_Name: Nuisance Puyo
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

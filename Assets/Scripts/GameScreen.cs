@@ -19,7 +19,6 @@ public class GameScreen : NetworkBehaviour
     [SerializeField] private TMP_Text numPlayers;
     [SerializeField] private TMP_Text gameMode;
 
-    //private NetworkVariable<ulong> playerID;
     public static bool multiplayer;
     private bool gameRunning = false;
 
@@ -108,9 +107,7 @@ public class GameScreen : NetworkBehaviour
 
         // Add locally
         if (!players.ContainsKey(playerID))
-        {
             players.Add(playerID, false);
-        }
 
         PropagateToClients();
 
@@ -128,9 +125,7 @@ public class GameScreen : NetworkBehaviour
     private void PropagateToClients()
     {
         foreach (var player in players)
-        {
             UpdatePlayerClientRpc(player.Key, player.Value);
-        }
     }
 
     [ClientRpc]
@@ -151,10 +146,8 @@ public class GameScreen : NetworkBehaviour
         Player[] playerList = Object.FindObjectsOfType<Player>();
         
         foreach (Player player in playerList)
-        {
             if (players.ContainsKey(player.OwnerClientId))
                 player.transform.GetChild(1).gameObject.SetActive(players[player.OwnerClientId]);
-        }
 
     }
 
@@ -165,24 +158,40 @@ public class GameScreen : NetworkBehaviour
         players.Add(NetworkManager.Singleton.LocalClientId, false);
     }
 
-    bool allReady()
+    bool AllReady()
     {
+        // can't start game unless at least one player is ready
+        // can't start multiplayer game unless at least 2 players ready
         if (players.Count == 0 || (multiplayer && players.Count <= 1))
-        {
-            // can't start game unless at least one player is ready
-            // can't start multiplayer game unless at least 2 players ready
-            return false; 
-        }
+            return false;
 
         foreach (var player in players)
-        {
             if (!player.Value)
-            {
                 return false;
-            }
-        }
 
         return true;
+    }
+
+    public void SendGarbage(ulong targetPlayer, int amount)
+    {
+        foreach (Transform child in playerList.transform)
+        {
+            Player player = child.gameObject.GetComponent<Player>();
+            if (player.OwnerClientId == targetPlayer)
+                player.ReceiveGarbage(amount);
+        }
+            
+    }
+
+    public void ChainEnded(ulong targetPlayer)
+    {
+        foreach (Transform child in playerList.transform)
+        {
+            Player player = child.gameObject.GetComponent<Player>();
+            if (player.OwnerClientId == targetPlayer)
+                player.FinishReceiveGarbage();
+                
+        }
     }
 
     private void OnEnable()
@@ -234,26 +243,19 @@ public class GameScreen : NetworkBehaviour
             startTimer -= Time.deltaTime;
 
             if (startTimer <= 1)
-            {
                 startCountdown.text = "GO!";
-            }
             if (startTimer <= 0)
-            {
                 startCountdown.gameObject.SetActive(false);
-            }
 
             return;
 
         }
 
-        if (allReady())
+        if (AllReady())
         {
             readyTime += Time.deltaTime;
             if (readyTime >= 1.0f)
-            {
-                // if all players are ready for a full second, start the game!
-                StartGameServerRpc();
-            }
+                StartGameServerRpc(); // if all players are ready for a full second, start the game!
 
             return;
         }
