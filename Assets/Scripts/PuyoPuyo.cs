@@ -19,6 +19,7 @@ public class PuyoPuyo : Player
     private int touchLimit = 12;
     private int touchCount;
 
+    private int nuisancePosition;
     private int scoreRemainder;
     private int targetScore = 70;
     private int chainCount;
@@ -51,6 +52,7 @@ public class PuyoPuyo : Player
     {
         base.OnEnable();
         scoreRemainder = 0;
+        nuisancePosition = 0;
 
         // Set the target player to the opponent
         if (GameScreen.multiplayer)
@@ -397,7 +399,9 @@ public class PuyoPuyo : Player
                         if (!grid[i, h])
                         {
                             grid[i, h] = grid[i, j];
-                            grid[i, j].transform.position = cornerPos + new Vector3(i, h - _height);
+                            grid[i, h].falling = true;
+                            grid[i, h]._y = h;
+
                             grid[i, j] = null;
                             if (grid[i, h].color != Block.Color.None) // do not add nuisance blocks to the list, they'll never cause a match
                                 moved.Add(grid[i, h]);
@@ -424,34 +428,23 @@ public class PuyoPuyo : Player
         while (stack.Count > 0) {
             current = stack.Pop();
             if (list.Contains(current))
-            {
                 continue;
-            }
 
             list.Add(current);
-            bx = (int)(current.transform.position.x - cornerPos.x);
-            by = (int)(current.transform.position.y - cornerPos.y + _height);
+            bx = (int)current._x;
+            by = (int)current._y;
 
-            if (match == Block.Color.None) {
+            if (match == Block.Color.None)
                 match = current.color;
-            }
 
             if (bx > 0 && grid[bx - 1, by] && grid[bx - 1, by].color == match)
-            {
                 stack.Push(grid[bx - 1, by]);
-            }
             if (by > 0 && grid[bx, by - 1] && grid[bx, by - 1].color == match)
-            {
                 stack.Push(grid[bx, by - 1]);
-            }
             if (bx < 5 && grid[bx + 1, by] && grid[bx + 1, by].color == match)
-            {
                 stack.Push(grid[bx + 1, by]);
-            }
             if (by < 12 && grid[bx, by + 1] && grid[bx, by + 1].color == match)
-            {
                 stack.Push(grid[bx, by + 1]);
-            }
 
         }
 
@@ -499,7 +492,7 @@ public class PuyoPuyo : Player
                 foreach (Block block in list)
                 {
                     ClearAdjacentNuisance(block);
-                    grid[(int)(block.transform.position.x - cornerPos.x), (int)(block.transform.position.y - cornerPos.y + _height)] = null;
+                    grid[(int)(block._x), (int)(block._y)] = null;
 
                     block.destroy = true;
                     clearedCurrent++;
@@ -538,8 +531,8 @@ public class PuyoPuyo : Player
     }
     void ClearAdjacentNuisance(Block b)
     {
-        int bx = (int)(b.transform.position.x - cornerPos.x);
-        int by = (int)(b.transform.position.y - cornerPos.y + _height);
+        int bx = (int)b._x;
+        int by = (int)b._y;
 
         if (bx < _width-1 && grid[bx+1, by] && grid[bx+1, by].color == Block.Color.None)
         {
@@ -574,7 +567,7 @@ public class PuyoPuyo : Player
 
     void SpawnGarbage()
     {
-        int x = 0;
+        int x = nuisancePosition;
         int y = _height - 1;
         if (incomingGarbage > 0)
             Debug.Log("Player " + OwnerClientId + " Incoming garbage: " + incomingGarbage);
@@ -590,6 +583,7 @@ public class PuyoPuyo : Player
             }
         }
 
+        nuisancePosition = x;
         DropAll();
     }
 
@@ -600,6 +594,10 @@ public class PuyoPuyo : Player
         
         grid[gx1, gy1] = falling[0];
         grid[gx2, gy2] = falling[1];
+        falling[0]._x = gx1;
+        falling[0]._y = gy1;
+        falling[1]._x = gx2;
+        falling[1]._y = gy2;
         DropAll();
 
         moved.Add(falling[0]);

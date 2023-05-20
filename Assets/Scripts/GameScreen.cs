@@ -195,7 +195,6 @@ public class GameScreen : NetworkBehaviour
     private void OnEnable()
     {
         // disable # Players text, enable Select Game Mode text
-        // TODO: update GameScreen based on server
         numPlayers.gameObject.SetActive(false);
         gameMode.gameObject.SetActive(true);
     }
