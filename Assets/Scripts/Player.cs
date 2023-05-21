@@ -73,7 +73,10 @@ public class Player : NetworkBehaviour
     protected void ProcessGarbage(int amount)
     {
         if (incomingGarbage > amount)
+        {
             incomingGarbage -= amount;
+            amount = 0;
+        }
         else
         {
             amount -= incomingGarbage;
@@ -81,7 +84,10 @@ public class Player : NetworkBehaviour
         }
         
         if (receivingGarbage > amount)
+        {
             receivingGarbage -= amount;
+            amount = 0;
+        }
         else
         {
             amount -= receivingGarbage;

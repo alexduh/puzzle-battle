@@ -11,7 +11,7 @@ public class PuyoPuyo : Player
     [SerializeField] private Block _bluePuyo;
 
     private AudioSource[] sounds;
-    private AudioSource connect, move, rotate;
+    private AudioSource connectSound, moveSound, rotateSound, damageSound;
 
     private float update, clearedTime, primaryBlink;
     private float keyPressed;
@@ -104,9 +104,10 @@ public class PuyoPuyo : Player
         immediateNext = new Block[2, 2];
         base.Start();
         sounds = GetComponents<AudioSource>();
-        connect = sounds[0];
-        move = sounds[1];
-        rotate = sounds[2];
+        connectSound = sounds[0];
+        moveSound = sounds[1];
+        rotateSound = sounds[2];
+        damageSound = sounds[3];
         grid = new Block[_width, _height * 2];
     }
 
@@ -214,7 +215,7 @@ public class PuyoPuyo : Player
         {
             falling[0].transform.position = new Vector3(x1 - 1, y1);
             falling[1].transform.position = new Vector3(x2 - 1, y2);
-            move.Play();
+            moveSound.Play();
         }
     }
 
@@ -225,7 +226,7 @@ public class PuyoPuyo : Player
         {
             falling[0].transform.position = new Vector3(x1 + 1, y1);
             falling[1].transform.position = new Vector3(x2 + 1, y2);
-            move.Play();
+            moveSound.Play();
         }
     }
 
@@ -307,7 +308,7 @@ public class PuyoPuyo : Player
             }
         }
 
-        rotate.Play();
+        rotateSound.Play();
     }
 
     void RotateCW()
@@ -379,7 +380,7 @@ public class PuyoPuyo : Player
             falling[1].transform.position = new Vector3(x1, y1 + 1);
         }
 
-        rotate.Play();
+        rotateSound.Play();
     }
 
     /** This function drops all Blocks that can be dropped, and
@@ -486,8 +487,8 @@ public class PuyoPuyo : Player
                     chainCount++;
                 }
 
-                connect.pitch = .35f + .05f * chainCount;
-                connect.Play();
+                connectSound.pitch = .35f + .05f * chainCount;
+                connectSound.Play();
                 clearedTime = 1.0f;
                 foreach (Block block in list)
                 {
@@ -513,7 +514,8 @@ public class PuyoPuyo : Player
             if (GameScreen.multiplayer)
             {
                 int garbage = CalculateGarbage();
-                ProcessGarbage(garbage);
+                if (garbage > 0)
+                    ProcessGarbage(garbage);
             }
             
         }
@@ -567,10 +569,11 @@ public class PuyoPuyo : Player
 
     void SpawnGarbage()
     {
+        if (incomingGarbage <= 0)
+            return;
+
         int x = nuisancePosition;
         int y = _height - 1;
-        if (incomingGarbage > 0)
-            Debug.Log("Player " + OwnerClientId + " Incoming garbage: " + incomingGarbage);
 
         for (; incomingGarbage > 0; incomingGarbage--)
         {
@@ -583,6 +586,7 @@ public class PuyoPuyo : Player
             }
         }
 
+        damageSound.Play();
         nuisancePosition = x;
         DropAll();
     }
