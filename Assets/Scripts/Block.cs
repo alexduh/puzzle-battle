@@ -22,9 +22,13 @@ public class Block : MonoBehaviour
     public void Falling(float endY)
     {
         if (transform.position.y > endY)
-            transform.position = new Vector3(transform.position.x, transform.position.y - .25f);
+            transform.position = new Vector3(transform.position.x, transform.position.y - .1f);
         else
+        {
+            transform.position = new Vector3(transform.position.x, endY);
             falling = false;
+        }
+            
     }
 
     // Update is called once per frame
