@@ -89,6 +89,8 @@ public class Player : NetworkBehaviour
             receivingGarbage = 0;
         }
 
+        //Debug.Log("Player " + OwnerClientId + " Sending Totals - receivingGarbage: " + receivingGarbage + " incomingGarbage: " + incomingGarbage + " amount: " + amount);
+
         if (amount > 0)
             gs.SendGarbage(targetPlayerId, amount);
     }
@@ -107,7 +109,6 @@ public class Player : NetworkBehaviour
     void Awake()
     {
         scoreObject = transform.GetChild(2).GetComponent<Score>();
-        transform.GetChild(3).position = Camera.main.ScreenToWorldPoint(transform.GetChild(3).position) + new Vector3(0, 0, 10);
     }
 
     protected void OnEnable()
@@ -135,6 +136,7 @@ public class Player : NetworkBehaviour
         GenerateGrid();
 
         gs = Object.FindObjectOfType<GameScreen>();
+        transform.GetChild(3).position = Camera.main.ScreenToWorldPoint(transform.GetChild(3).position) + new Vector3(0, 0, 10);
     }
 
     // Update is called once per frame

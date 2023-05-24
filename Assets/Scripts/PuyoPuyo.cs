@@ -529,9 +529,9 @@ public class PuyoPuyo : Player
                 AllClear();
 
             gs.ChainEnded(targetPlayerId);
-            spawnedGarbage = SpawnGarbage(30); // spawn up to 30 nuisance blocks
+            if (IsOwner)
+                spawnedGarbage = SpawnGarbage(30); // spawn up to 30 nuisance blocks
         }
-            
     }
 
     void ClearAdjacentNuisance(Block b)
@@ -591,6 +591,9 @@ public class PuyoPuyo : Player
 
         for (; incomingGarbage > 0; incomingGarbage--)
         {
+            if (numSpawned >= numToSpawn)
+                break;
+
             grid[x, y + _height] = Instantiate(_nuisancePuyo, cornerPos + new Vector3(x, y), Quaternion.identity);
             numSpawned++;
             x++;
@@ -600,13 +603,12 @@ public class PuyoPuyo : Player
                 y--;
             }
 
-            if (numSpawned >= numToSpawn)
-                break;
         }
 
         damageSound.Play();
         nuisancePosition = x;
         DropAll();
+        //Debug.Log("Player " + OwnerClientId + " Receiving " + numSpawned + " spawnedGarbage");
         return numSpawned;
     }
 
@@ -696,6 +698,7 @@ public class PuyoPuyo : Player
         flags.rotatedCCW = false;
         flags.dropped = false;
         flags.spawnedGarbage = 0;
+        spawnedGarbage = 0;
 
         if (GameScreen.startTimer > 0)
             return;
@@ -815,7 +818,9 @@ public class PuyoPuyo : Player
                     
             }
 
-            UpdateOpponentServerRpc(OwnerClientId, flags);
         }
+        flags.spawnedGarbage = spawnedGarbage;
+        UpdateOpponentServerRpc(OwnerClientId, flags);
+
     }
 }
