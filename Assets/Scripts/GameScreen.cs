@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 using Unity.Netcode;
+using Unity.VisualScripting;
 
 public class GameScreen : NetworkBehaviour
 {
@@ -13,6 +14,7 @@ public class GameScreen : NetworkBehaviour
     [SerializeField] private GameObject mainMenu;
     [SerializeField] private GameObject playerList;
     [SerializeField] private GameObject go;
+    [SerializeField] private GameObject selectPlayers;
 
     [SerializeField] private TMP_Text numPlayers;
     [SerializeField] private TMP_Text gameMode;
@@ -55,6 +57,11 @@ public class GameScreen : NetworkBehaviour
         startCountdown.gameObject.SetActive(true);
 
         _cam.GetComponent<Camera>().orthographicSize = 7.5f;
+        if (multiplayer)
+            _cam.transform.position = new Vector3(0, 0, -10);
+        else
+            _cam.transform.position = new Vector3(.5f, 0, -10);
+
         //_cam.GetComponent<Camera>().orthographicSize = (float)_height * 0.625f;
         //_cam.transform.position = new Vector3((float)_width / 2 - 0.5f, (float)_height / 2 - 0.5f, -10);
     }
@@ -80,6 +87,30 @@ public class GameScreen : NetworkBehaviour
             SetReadyServerRpc(NetworkManager.Singleton.LocalClientId);
         else
             StartGame();
+    }
+
+    public void OnResetClicked()
+    {
+        if (gameRunning)
+        {
+            ulong playerId = 0;
+            if (multiplayer)
+                playerId = NetworkManager.Singleton.LocalClientId;
+
+            EndGame(playerId);
+        }
+        else if (go.GetComponent<GameOver>().gameEnded <= 0)
+            this.gameObject.SetActive(false); // go back to main menu
+        /*
+        if (IsServer)
+        {
+            DestroyPlayers();
+            NetworkManager.Singleton.StopHost();
+        }
+        else
+        {
+            NetworkManager.Singleton.StopClient();
+        }*/
     }
 
     public override void OnNetworkSpawn()
@@ -156,6 +187,14 @@ public class GameScreen : NetworkBehaviour
         players.Add(NetworkManager.Singleton.LocalClientId, false);
     }
 
+    private void DestroyPlayers()
+    {
+        foreach (Transform child in playerLayout)
+            Destroy(child.gameObject);
+        
+        players.Clear();
+    }
+
     bool AllReady()
     {
         // can't start game unless at least one player is ready
@@ -190,6 +229,14 @@ public class GameScreen : NetworkBehaviour
                 player.FinishReceiveGarbage();
                 
         }
+    }
+
+    private void OnDisable()
+    {
+        DestroyPlayers();
+        numPlayers.gameObject.SetActive(true);
+        gameMode.gameObject.SetActive(false);
+        selectPlayers.SetActive(true);
     }
 
     private void OnEnable()

@@ -47,18 +47,13 @@ public class Player : NetworkBehaviour
         }
     }
 
-    protected void DeleteGrid()
+    public void DeleteGrid()
     {
         for (int i = 0; i < _width; i++)
-        {
             for (int j = 0; j < (_height * 2); j++)
-            {
                 if (grid[i, j])
-                {
                     Destroy(grid[i, j].gameObject);
-                }
-            }
-        }
+
     }
 
     // Show "GAME OVER!" message for 5 seconds, then hide message and return to Main Menu
@@ -105,18 +100,14 @@ public class Player : NetworkBehaviour
 
     public void FinishReceiveGarbage()
     {
-        incomingGarbage = receivingGarbage;
+        incomingGarbage += receivingGarbage;
         receivingGarbage = 0;
     }
 
     void Awake()
     {
         scoreObject = transform.GetChild(2).GetComponent<Score>();
-    }
-
-    protected void OnDisable()
-    {
-        scoreObject.gameObject.SetActive(false); // Hide Score
+        transform.GetChild(3).position = Camera.main.ScreenToWorldPoint(transform.GetChild(3).position) + new Vector3(0, 0, 10);
     }
 
     protected void OnEnable()

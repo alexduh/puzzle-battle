@@ -28,7 +28,7 @@ public class Score : MonoBehaviour
         scoreText.text = score.ToString();
     }
 
-    private void IncrementScore(int increase)
+    public void IncrementScore(int increase)
     {
         score += increase;
         UpdateScore(score);

@@ -11,13 +11,14 @@ public class PuyoPuyo : Player
     [SerializeField] private Block _bluePuyo;
 
     private AudioSource[] sounds;
-    private AudioSource connectSound, moveSound, rotateSound, damageSound;
+    private AudioSource connectSound, moveSound, rotateSound, damageSound, allClearSound;
 
     private float update, clearedTime, primaryBlink;
     private float keyPressed;
     private PieceGenerator generator;
     private int touchLimit = 12;
     private int touchCount;
+    private int spawnedGarbage;
 
     private int nuisancePosition;
     private int scoreRemainder;
@@ -28,7 +29,7 @@ public class PuyoPuyo : Player
     Block[] falling = new Block[2];
     int x1, y1, x2, y2, gx1, gx2, gy1, gy2;
 
-    private struct MovementFlags : INetworkSerializable
+    private struct EventFlags : INetworkSerializable
     {
         public bool movedLeft;
         public bool movedRight;
@@ -36,6 +37,7 @@ public class PuyoPuyo : Player
         public bool rotatedCW;
         public bool rotatedCCW;
         public bool dropped;
+        public int spawnedGarbage;
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
@@ -45,6 +47,7 @@ public class PuyoPuyo : Player
             serializer.SerializeValue(ref rotatedCW);
             serializer.SerializeValue(ref rotatedCCW);
             serializer.SerializeValue(ref dropped);
+            serializer.SerializeValue(ref spawnedGarbage);
         }
     }
 
@@ -66,9 +69,8 @@ public class PuyoPuyo : Player
         }   
     }
 
-    new void OnDisable()
+    void OnDisable()
     {
-        base.OnDisable();
         if (falling[0])
         {
             Destroy(falling[0].gameObject);
@@ -92,7 +94,6 @@ public class PuyoPuyo : Player
         while (next.Count > 0)
             next.Dequeue();
 
-        DeleteGrid();
     }
 
     // Start is called before the first frame update
@@ -108,6 +109,7 @@ public class PuyoPuyo : Player
         moveSound = sounds[1];
         rotateSound = sounds[2];
         damageSound = sounds[3];
+        allClearSound = sounds[4];
         grid = new Block[_width, _height * 2];
     }
 
@@ -452,11 +454,6 @@ public class PuyoPuyo : Player
         return list;
     }
 
-    int nCr(int n, int r)
-    {
-        return n! / (r! * (n - r)!);
-    }
-
     /** This function checks for any connections made by Blocks in 'moved',
      *  then marks all connected blocks to be deleted during the Update cycle.
      */
@@ -523,14 +520,20 @@ public class PuyoPuyo : Player
         if (!chainIncremented)
         {
             chainCount = 0;
-            if (grid.Length == 0) // TODO: fix the length calculation to work!
-                scoreRemainder += 2100; // all clear bonus (30 nuisance blocks) TODO: create function for this, add SFX and text popup
+            bool empty = true;
+            foreach (Block b in grid)
+                if (b)
+                    empty = false;
+
+            if (empty)
+                AllClear();
 
             gs.ChainEnded(targetPlayerId);
-            SpawnGarbage();
+            spawnedGarbage = SpawnGarbage(30); // spawn up to 30 nuisance blocks
         }
             
     }
+
     void ClearAdjacentNuisance(Block b)
     {
         int bx = (int)b._x;
@@ -559,6 +562,15 @@ public class PuyoPuyo : Player
             
     }
 
+    void AllClear()
+    {
+        scoreRemainder += 2100; // all clear bonus (30 nuisance blocks)
+        scoreObject.IncrementScore(2100);
+
+        transform.GetChild(3).gameObject.SetActive(true); // display all clear message
+        allClearSound.Play();
+    }
+
     int CalculateGarbage()
     {
         int garbageSent = scoreRemainder / targetScore;
@@ -567,10 +579,12 @@ public class PuyoPuyo : Player
         return garbageSent;
     }
 
-    void SpawnGarbage()
+    int SpawnGarbage(int numToSpawn)
     {
         if (incomingGarbage <= 0)
-            return;
+            return 0;
+
+        int numSpawned = 0;
 
         int x = nuisancePosition;
         int y = _height - 1;
@@ -578,17 +592,22 @@ public class PuyoPuyo : Player
         for (; incomingGarbage > 0; incomingGarbage--)
         {
             grid[x, y + _height] = Instantiate(_nuisancePuyo, cornerPos + new Vector3(x, y), Quaternion.identity);
+            numSpawned++;
             x++;
             if (x >= _width)
             {
                 x = 0;
                 y--;
             }
+
+            if (numSpawned >= numToSpawn)
+                break;
         }
 
         damageSound.Play();
         nuisancePosition = x;
         DropAll();
+        return numSpawned;
     }
 
     void Drop()
@@ -610,14 +629,6 @@ public class PuyoPuyo : Player
         CheckConnect(moved);
         if (clearedTime > 0)
             return;
-
-        SpawnGarbage();
-
-        if (grid[2, 11])
-        {
-            Eliminated();
-            return;
-        }
 
         falling[0] = falling[1] = null;
     }
@@ -643,13 +654,13 @@ public class PuyoPuyo : Player
     }
 
     [ServerRpc(RequireOwnership = false)]
-    void UpdateOpponentServerRpc(ulong clientId, MovementFlags flags)
+    void UpdateOpponentServerRpc(ulong clientId, EventFlags flags)
     {
         UpdateOpponentClientRpc(clientId, flags);
     }
 
     [ClientRpc]
-    void UpdateOpponentClientRpc(ulong clientId, MovementFlags flags)
+    void UpdateOpponentClientRpc(ulong clientId, EventFlags flags)
     {
         if (NetworkManager.Singleton.LocalClientId == clientId)
             return;
@@ -669,22 +680,33 @@ public class PuyoPuyo : Player
             RotateCCW();
         if (flags.dropped)
             Drop();
+        if (flags.spawnedGarbage > 0)
+            SpawnGarbage(flags.spawnedGarbage);
         // Update opponent's grid
     }
 
     // Update is called once per frame
     new void Update()
     {
-        MovementFlags flags = new MovementFlags();
+        EventFlags flags = new EventFlags();
         flags.movedDown = false;
         flags.movedLeft = false;
         flags.movedRight = false;
         flags.rotatedCW = false;
         flags.rotatedCCW = false;
         flags.dropped = false;
+        flags.spawnedGarbage = 0;
 
         if (GameScreen.startTimer > 0)
             return;
+
+        if (grid[2, 11])
+        {
+            if (!grid[2, 11].falling)
+                Eliminated();
+
+            return;
+        }
 
         moved = new List<Block>();
 
@@ -743,7 +765,7 @@ public class PuyoPuyo : Player
                     update = dropTime;
                 }
             }
-            if (Input.GetKeyDown(KeyCode.X))
+            if (Input.GetKeyDown(KeyCode.X) || Input.GetKeyDown(KeyCode.UpArrow))
             {
                 RotateCW();
                 flags.rotatedCW = true;

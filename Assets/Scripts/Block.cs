@@ -3,6 +3,7 @@ using UnityEngine;
 public class Block : MonoBehaviour
 {
     private float update;
+    private float fallTime;
 
     public enum Color
     {
@@ -35,7 +36,16 @@ public class Block : MonoBehaviour
     void Update()
     {
         if (falling)
+            fallTime += Time.deltaTime;
+        else
+            fallTime = 0;
+
+        if (fallTime >= .0025f) // .3 seconds to fall 12 units
+        {
             Falling(_y - 6);
+            fallTime -= .0025f;
+        }
+            
         if (destroy)
         {
             update += Time.deltaTime;

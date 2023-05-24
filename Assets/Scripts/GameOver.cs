@@ -10,11 +10,11 @@ public class GameOver : MonoBehaviour
     [SerializeField] private AudioSource winSound;
     [SerializeField] private TMP_Text endMessage;
 
-    private float update;
+    public float gameEnded;
 
     private void OnEnable()
     {
-        update = 5.0f;
+        gameEnded = 5.0f;
     }
 
     public void Lose()
@@ -35,15 +35,19 @@ public class GameOver : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        update -= Time.deltaTime;
-        if (update <= 0)
+        gameEnded -= Time.deltaTime;
+        if (gameEnded <= 0)
         {
             this.gameObject.SetActive(false);
             mainMenu.SetActive(true);
             readyButton.gameObject.SetActive(true);
 
             foreach (Transform child in playerList.transform)
+            {
+                child.gameObject.GetComponent<Player>().DeleteGrid();
                 child.GetChild(0).gameObject.SetActive(true);
+                child.GetChild(2).gameObject.SetActive(false);
+            }
 
         }
     }
