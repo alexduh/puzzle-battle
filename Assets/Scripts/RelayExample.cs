@@ -15,6 +15,7 @@ public class RelayExample : MonoBehaviour
     [SerializeField] private TMP_Text _joinCodeText;
     [SerializeField] private TMP_InputField _joinInput;
     [SerializeField] private GameObject _buttons;
+    [SerializeField] private GameObject mainMenu;
 
     private UnityTransport _transport;
     private const int MaxPlayers = 2;
@@ -57,5 +58,15 @@ public class RelayExample : MonoBehaviour
         _transport.SetClientRelayData(a.RelayServer.IpV4, (ushort)a.RelayServer.Port, a.AllocationIdBytes, a.Key, a.ConnectionData, a.HostConnectionData);
 
         NetworkManager.Singleton.StartClient();
+    }
+
+    private void OnEnable()
+    {
+        mainMenu.transform.Find("NumPlayersText").gameObject.SetActive(false);
+    }
+
+    private void OnDisable()
+    {
+        mainMenu.transform.Find("NumPlayersText").gameObject.SetActive(true);
     }
 }

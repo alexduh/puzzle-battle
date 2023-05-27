@@ -15,6 +15,7 @@ public class GameScreen : NetworkBehaviour
     [SerializeField] private GameObject playerList;
     [SerializeField] private GameObject go;
     [SerializeField] private GameObject selectPlayers;
+    [SerializeField] private GameObject relayScreen;
 
     [SerializeField] private TMP_Text numPlayers;
     [SerializeField] private TMP_Text gameMode;
@@ -26,6 +27,7 @@ public class GameScreen : NetworkBehaviour
 
     public static float startTimer;
     private float readyTime;
+    private bool shutdownStarted;
 
     public void SetSinglePlayer()
     {
@@ -49,7 +51,6 @@ public class GameScreen : NetworkBehaviour
             child.GetChild(0).gameObject.SetActive(false);
         }
             
-
         SetReadyServerRpc(NetworkManager.Singleton.LocalClientId);
 
         mainMenu.gameObject.SetActive(false);
@@ -89,33 +90,44 @@ public class GameScreen : NetworkBehaviour
             StartGame();
     }
 
+    [ServerRpc(RequireOwnership = false)]
+    private void RemovePlayerServerRpc(ulong clientId)
+    {
+        NetworkManager.DisconnectClient(clientId);
+    }
+
     public void OnResetClicked()
     {
         if (gameRunning)
         {
-            ulong playerId = 0;
             if (multiplayer)
-                playerId = NetworkManager.Singleton.LocalClientId;
-
-            EndGame(playerId);
-        }
-        else if (go.GetComponent<GameOver>().gameEnded <= 0)
-            this.gameObject.SetActive(false); // go back to main menu
-        /*
-        if (IsServer)
-        {
-            DestroyPlayers();
-            NetworkManager.Singleton.StopHost();
+                EndGameServerRpc(NetworkManager.Singleton.LocalClientId);
+            else
+                EndGame(0);
         }
         else
         {
-            NetworkManager.Singleton.StopClient();
-        }*/
+            if (go.GetComponent<GameOver>().gameEnded <= 0)
+            {
+                if (multiplayer)
+                {
+                    shutdownStarted = true;
+                    NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnectedCallback;
+                    NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnectCallback;
+                    NetworkManager.Singleton.Shutdown();
+                        
+                    //RemovePlayerServerRpc(NetworkManager.Singleton.LocalClientId);
+                    //NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnectedCallback;
+                }
+                else
+                    this.gameObject.SetActive(false); // disable GameScreen
+            }
+        }
+
     }
 
     public override void OnNetworkSpawn()
     {
-        //playerID = new NetworkVariable<ulong>(OwnerClientId);
         if (IsServer)
         {
             NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnectedCallback;
@@ -125,7 +137,7 @@ public class GameScreen : NetworkBehaviour
         }
 
         // Client uses this in case host destroys the lobby
-        //NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnectCallback;
+        NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnectCallback;
 
     }
 
@@ -141,6 +153,19 @@ public class GameScreen : NetworkBehaviour
         PropagateToClients();
 
         UpdateInterface(players);
+    }
+
+    private void OnClientDisconnectCallback(ulong playerId)
+    {
+        if (IsServer)
+            if (players.ContainsKey(playerId))
+                players.Remove(playerId);
+        else
+        {
+            // This happens when the host disconnects the lobby
+            shutdownStarted = true;
+            NetworkManager.Singleton.Shutdown();
+        }
     }
 
     [ServerRpc(RequireOwnership = false)]
@@ -233,10 +258,21 @@ public class GameScreen : NetworkBehaviour
 
     private void OnDisable()
     {
-        DestroyPlayers();
-        numPlayers.gameObject.SetActive(true);
         gameMode.gameObject.SetActive(false);
-        selectPlayers.SetActive(true);
+        DestroyPlayers();
+
+        if (multiplayer)
+        {
+            // Show relay screen and buttons, hide room code text
+            relayScreen.transform.Find("Room Code").gameObject.GetComponent<TMP_Text>().text = "";
+            relayScreen.transform.Find("Relay Buttons").gameObject.SetActive(true);
+        }
+        else
+        {
+            numPlayers.gameObject.SetActive(true);
+            selectPlayers.SetActive(true);
+        }
+        
     }
 
     private void OnEnable()
@@ -281,6 +317,12 @@ public class GameScreen : NetworkBehaviour
     // Update is called once per frame
     void Update()
     {
+        if (shutdownStarted && !NetworkManager.Singleton.ShutdownInProgress)
+        {
+            this.gameObject.SetActive(false);
+            shutdownStarted = false;
+        }
+
         if (startTimer > 0)
         {
             startCountdown.text = Mathf.Round(startTimer).ToString();
@@ -292,7 +334,6 @@ public class GameScreen : NetworkBehaviour
                 startCountdown.gameObject.SetActive(false);
 
             return;
-
         }
 
         if (AllReady())
@@ -305,6 +346,5 @@ public class GameScreen : NetworkBehaviour
         }
 
         readyTime = 0;
-
     }
 }
