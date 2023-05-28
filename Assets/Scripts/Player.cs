@@ -1,17 +1,23 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
+using UnityEngine.UIElements;
 
 public class Player : NetworkBehaviour
 {
     [SerializeField] protected int _width, _height;
     [SerializeField] private Tile _tilePrefab;
-    [SerializeField] protected GameScreen gs;
+    [SerializeField] protected GameScreen gameScreen;
+    [SerializeField] protected Sprite starNuisance;
+    [SerializeField] protected Sprite rockNuisance;
+    [SerializeField] protected Sprite largeNuisance;
+    [SerializeField] protected Sprite smallNuisance;
 
     protected Score scoreObject;
     protected Block[,] grid;
     protected Block[,] immediateNext;
     protected Queue<int> next = new Queue<int>();
+    private GameObject garbageQueue;
 
     protected ulong targetPlayerId;
     protected int receivingGarbage;
@@ -36,6 +42,8 @@ public class Player : NetworkBehaviour
     {
         playerPos = Camera.main.ScreenToWorldPoint(transform.position);
         cornerPos = new Vector3(Mathf.Round(playerPos.x - 2.5f), 6f);
+        garbageQueue = transform.GetChild(4).gameObject;
+        garbageQueue.transform.position = cornerPos; // garbageQueue position
 
         for (int x = 0; x < _width; x++)
         {
@@ -60,9 +68,9 @@ public class Player : NetworkBehaviour
     protected void Eliminated()
     {
         if (!GameScreen.multiplayer)
-            gs.EndGame(0);
+            gameScreen.EndGame(0);
         else if (IsOwner)
-            gs.EndGameServerRpc(OwnerClientId);
+            gameScreen.EndGameServerRpc(OwnerClientId);
     }
 
     protected void ProcessGarbage(int amount)
@@ -89,15 +97,55 @@ public class Player : NetworkBehaviour
             receivingGarbage = 0;
         }
 
+        UpdateGarbageQueue();
         //Debug.Log("Player " + OwnerClientId + " Sending Totals - receivingGarbage: " + receivingGarbage + " incomingGarbage: " + incomingGarbage + " amount: " + amount);
 
         if (amount > 0)
-            gs.SendGarbage(targetPlayerId, amount);
+            gameScreen.SendGarbage(targetPlayerId, amount);
     }
 
     public void ReceiveGarbage(int amount)
     {
         receivingGarbage += amount;
+        UpdateGarbageQueue();
+    }
+
+    protected void UpdateGarbageQueue()
+    {
+        int totalGarbage = incomingGarbage + receivingGarbage;
+        foreach (Transform child in garbageQueue.transform)
+        {
+            if (totalGarbage >= 180)
+            {
+                // add star nuisance
+                totalGarbage -= 180;
+                child.GetComponent<SpriteRenderer>().sprite = starNuisance;
+                continue;
+            }
+            if (totalGarbage >= 30)
+            {
+                // add rock nuisance
+                totalGarbage -= 30;
+                child.GetComponent<SpriteRenderer>().sprite = rockNuisance;
+                continue;
+            }
+            if (totalGarbage >= 6)
+            {
+                // add large nuisance
+                totalGarbage -= 6;
+                child.GetComponent<SpriteRenderer>().sprite = largeNuisance;
+                continue;
+            }
+            if (totalGarbage >= 1)
+            {
+                // add small nuisance
+                totalGarbage--;
+                child.GetComponent<SpriteRenderer>().sprite = smallNuisance;
+                continue;
+            }
+            child.GetComponent<SpriteRenderer>().sprite = null;
+        }
+        
     }
 
     public void FinishReceiveGarbage()
@@ -135,7 +183,7 @@ public class Player : NetworkBehaviour
     {
         GenerateGrid();
 
-        gs = Object.FindObjectOfType<GameScreen>();
+        gameScreen = Object.FindObjectOfType<GameScreen>();
         transform.GetChild(3).position = Camera.main.ScreenToWorldPoint(transform.GetChild(3).position) + new Vector3(0, 0, 10);
     }
 

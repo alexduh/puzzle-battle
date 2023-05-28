@@ -528,7 +528,7 @@ public class PuyoPuyo : Player
             if (empty)
                 AllClear();
 
-            gs.ChainEnded(targetPlayerId);
+            gameScreen.ChainEnded(targetPlayerId);
             if (IsOwner)
                 spawnedGarbage = SpawnGarbage(30); // spawn up to 30 nuisance blocks
         }
@@ -608,6 +608,8 @@ public class PuyoPuyo : Player
         damageSound.Play();
         nuisancePosition = x;
         DropAll();
+
+        UpdateGarbageQueue();
         //Debug.Log("Player " + OwnerClientId + " Receiving " + numSpawned + " spawnedGarbage");
         return numSpawned;
     }
@@ -653,6 +655,21 @@ public class PuyoPuyo : Player
     {
         UpdateCoords();
         return (y1 == cornerPos.y - _height || y2 == cornerPos.y - _height || grid[gx1, gy1 - 1] || grid[gx2, gy2 - 1]);
+    }
+
+    void DelayDropping()
+    {
+        if (BottomTouching())
+        {
+            touchCount++;
+            update = 0; // reset timer to prevent immediate drop
+        }
+
+        if (touchCount >= touchLimit)
+        {
+            touchCount = 0;
+            update = dropTime;
+        }
     }
 
     [ServerRpc(RequireOwnership = false)]
@@ -734,7 +751,7 @@ public class PuyoPuyo : Player
 
             if (Input.GetKey(KeyCode.LeftArrow))
             {
-                if (keyPressed == 0 || keyPressed > .5f) // move immediately on first press, then zoom after 0.5s
+                if (keyPressed == 0 || keyPressed > .33f) // move immediately on first press, then zoom after 0.5s
                 {
                     MoveLeft();
                     flags.movedLeft = true;
@@ -744,7 +761,7 @@ public class PuyoPuyo : Player
             }
             else if (Input.GetKey(KeyCode.RightArrow))
             {
-                if (keyPressed == 0 || keyPressed > .5f) // move immediately on first press, then zoom after 0.5s
+                if (keyPressed == 0 || keyPressed > .33f) // move immediately on first press, then zoom after 0.5s
                 {
                     MoveRight();
                     flags.movedRight = true;
@@ -756,33 +773,13 @@ public class PuyoPuyo : Player
             {
                 RotateCCW();
                 flags.rotatedCCW = true;
-                if (BottomTouching())
-                {
-                    touchCount++;
-                    update = 0; // reset timer to prevent immediate drop
-                }
-
-                if (touchCount >= touchLimit)
-                {
-                    touchCount = 0;
-                    update = dropTime;
-                }
+                DelayDropping();
             }
             if (Input.GetKeyDown(KeyCode.X) || Input.GetKeyDown(KeyCode.UpArrow))
             {
                 RotateCW();
                 flags.rotatedCW = true;
-                if (BottomTouching())
-                {
-                    touchCount++;
-                    update = 0; // reset timer to prevent immediate drop
-                }
-                    
-                if (touchCount >= touchLimit)
-                {
-                    touchCount = 0;
-                    update = dropTime;
-                }
+                DelayDropping();
             }
 
             if (Input.GetKeyUp(KeyCode.LeftArrow) || Input.GetKeyUp(KeyCode.RightArrow))
