@@ -20,8 +20,8 @@ public class Player : NetworkBehaviour
     private GameObject garbageQueue;
 
     protected ulong targetPlayerId;
-    protected int receivingGarbage;
-    protected int incomingGarbage;
+    protected int receivingGarbage = 0;
+    protected int incomingGarbage = 0;
     protected int clearedTotal; // Blocks destroyed
     protected int level; // increase based on Blocks destroyed
     protected float dropTime; // decrease based on level
@@ -163,8 +163,6 @@ public class Player : NetworkBehaviour
     {
         scoreObject.gameObject.SetActive(true); // Show Score
         scoreObject.UpdateScore(0); // Reset Score
-        receivingGarbage = 0;
-        incomingGarbage = 0;
 
         clearedTotal = 0;
         level = 1;

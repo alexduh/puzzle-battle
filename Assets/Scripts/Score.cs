@@ -36,7 +36,7 @@ public class Score : MonoBehaviour
 
     public int CalculateScore(int puyoCleared, int chainCount, int numColors)
     {
-        int multiplier = chainPower[chainCount-1] + colorBonus[numColors-1] + groupBonus[puyoCleared-4];
+        int multiplier = chainPower[chainCount-1] + colorBonus[numColors-1] + groupBonus[Mathf.Min(puyoCleared - 4, 7)];
         multiplier = Mathf.Max(multiplier, 1);
 
         int connectScore = 10 * puyoCleared * multiplier;

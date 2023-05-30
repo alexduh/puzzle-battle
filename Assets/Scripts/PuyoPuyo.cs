@@ -71,6 +71,9 @@ public class PuyoPuyo : Player
 
     void OnDisable()
     {
+        receivingGarbage = incomingGarbage = 0;
+        UpdateGarbageQueue();
+
         if (falling[0])
         {
             Destroy(falling[0].gameObject);
