@@ -16,6 +16,7 @@ public class GameScreen : NetworkBehaviour
     [SerializeField] private GameObject go;
     [SerializeField] private GameObject selectPlayers;
     [SerializeField] private GameObject relayScreen;
+    [SerializeField] private GameObject backgroundImg;
 
     [SerializeField] private TMP_Text numPlayers;
     [SerializeField] private TMP_Text gameMode;
@@ -62,6 +63,8 @@ public class GameScreen : NetworkBehaviour
             _cam.transform.position = new Vector3(0, 0, -10);
         else
             _cam.transform.position = new Vector3(.5f, 0, -10);
+
+        backgroundImg.transform.position = _cam.transform.position + new Vector3(0, 0, 10);
 
         //_cam.GetComponent<Camera>().orthographicSize = (float)_height * 0.625f;
         //_cam.transform.position = new Vector3((float)_width / 2 - 0.5f, (float)_height / 2 - 0.5f, -10);

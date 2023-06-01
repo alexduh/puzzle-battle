@@ -3066,6 +3066,7 @@ MonoBehaviour:
   go: {fileID: 1921765531}
   selectPlayers: {fileID: 415794264}
   relayScreen: {fileID: 779420853}
+  backgroundImg: {fileID: 12347552}
   numPlayers: {fileID: 15244142}
   gameMode: {fileID: 1486381616}
 --- !u!82 &1900930461
